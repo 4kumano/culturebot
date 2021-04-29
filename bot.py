@@ -1,5 +1,6 @@
 import os
 
+import traceback
 import discord
 from discord import Message, Color
 from discord.ext import commands
@@ -34,7 +35,7 @@ for file in os.listdir('./cogs'):
             bot.load_extension(f"cogs.{extension}")
             print(f"Loaded extension '{extension}'")
         except Exception as e:
-            exception = f"{type(e).__name__}: {e}"
+            exception = traceback.format_exc()
             logger.error(f"Failed to load extension {extension}\n{exception}")
 
 @bot.event

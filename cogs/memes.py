@@ -25,7 +25,7 @@ class Memes(commands.Cog, name="memes"):
         self.memebin = await self.bot.fetch_channel(channel)
         self._memes = [msg.attachments[0].url for msg in await self.memebin.history(limit=None).flatten()]
 
-    @commands.group('meme', aliases=['randommeme', 'memes'], invoke_without_command=True)
+    @commands.command('meme', aliases=['randommeme', 'memes'], invoke_without_command=True)
     async def meme(self, ctx: Context):
         """Sends a random meme from the owner's meme folder.
 
@@ -37,7 +37,7 @@ class Memes(commands.Cog, name="memes"):
         else:
             await ctx.send('https://tenor.com/view/loading-discord-loading-discord-boxes-squares-gif-16187521')
 
-    @meme.command('repost', aliases=['memerepost', 'repostmeme'])
+    @commands.command('repost', aliases=['memerepost', 'repostmeme'])
     async def repost(self, ctx: Context, channel: TextChannel = None):
         """Reposts a random meme from meme channels in the server
 

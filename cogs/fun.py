@@ -13,10 +13,10 @@ class Fun(commands.Cog, name="fun"):
         self.bot = bot
         self.soundeffect = config['fun']['soundeffect']
     
-    @commands.command('soundeffect',aliases=['nigger'],hidden=True)
+    @commands.command('soundeffect',aliases=[config['fun'].get('soundeffectname')])
     @commands.cooldown(rate=1,per=5,type=commands.BucketType.guild)
     async def play_soundeffect(self, ctx: Context, target: Member = None):
-        """Joins user's VC and lets keemstar call him a nigger.
+        """Joins user's VC and lets keemstar call him a nice word.
         
         If I get canceled for this I have no regrets.
         I ain't on twitter anyways.
