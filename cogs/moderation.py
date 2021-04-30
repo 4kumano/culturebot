@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import discord
 from discord import User, Member
 from discord.channel import TextChannel
+from discord.permissions import PermissionOverwrite
 from config import config, logger
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
@@ -61,7 +62,7 @@ class Moderation(commands.Cog, name="moderation"):
             if channel.permissions_synced:
                 channel = channel.category
             await channel.set_permissions(role, overwrite=overwrite)
-        
+
         if role not in member.roles:
             await ctx.send(f'{member} is already muted')
             return
@@ -83,6 +84,22 @@ class Moderation(commands.Cog, name="moderation"):
             return
         await member.remove_roles()
         await ctx.send(f"Unmuted {member}")
+
+    @commands.command('lock')
+    @commands.has_permissions(manage_channels=True)
+    @commands.bot_has_permissions(manage_channels=True)
+    async def lock(self, ctx: Context, channel: TextChannel = None):
+        channel = channel or ctx.channel
+        ctx.send(f'Locked {channel} :lock:')
+        channel.set_permissions(ctx.guild.roles[0], send_messages=False)
+
+    @commands.command('unlock')
+    @commands.has_permissions(manage_channels=True)
+    @commands.bot_has_permissions(manage_channels=True)
+    async def lock(self, ctx: Context, channel: TextChannel = None):
+        channel = channel or ctx.channel
+        ctx.send(f'Unlocked {channel} :unlock:')
+        channel.set_permissions(ctx.guild.roles[0], overwrite=None)
 
 
 def setup(bot):

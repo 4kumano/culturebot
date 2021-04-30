@@ -1,8 +1,10 @@
 import asyncio
+from typing import Dict, List, Optional
 
 import discord
+from discord.channel import TextChannel
 from config import config, logger
-from discord import Member
+from discord import Member, User
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 

@@ -73,6 +73,8 @@ class Anilist(commands.Cog, name="github"):
             )
 
             await self.channel.send(embed=embed)
+            
+            logger.info(f"Updated github commit {commit['sha']}")
 
 
 def setup(bot):

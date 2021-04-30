@@ -44,7 +44,10 @@ class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_ow
             return stdout
         
         try:
-            return repr(eval(code, env))
+            ret = eval(code, env)
+            if ret:
+                self.last_return = ret
+                return repr(ret)
         except:
             pass
         
@@ -65,8 +68,7 @@ class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_ow
         }
         
         for code in re.findall(self._code_re, string):
-            code = code.strip()
-            output = await self.run_code(code, env)
+            output = await self.run_code(code.strip(), env)
             chunk_size = 1992
             for i in range(0, len(output), chunk_size):
                 await ctx.send(f'```\n{output[i:i+chunk_size]}\n```')

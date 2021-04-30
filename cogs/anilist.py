@@ -101,7 +101,7 @@ query ($id: Int, $last: Int) {
             )
             await self.channel.send(embed=embed)
 
-            logger.info(f"Updated anilist activity for {activity['id']}")
+            logger.info(f"Updated anilist activity {activity['id']}")
 
     async def fetch_anilist(self, query: str, variables: dict, **kwargs):
         """Fetches data from anilist api."""

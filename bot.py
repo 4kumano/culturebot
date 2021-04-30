@@ -52,6 +52,7 @@ async def on_message(message: Message):
 @bot.event
 async def on_command_error(ctx: Context, error: Exception):
     msg = error.args[0]
+    logger.exception(error)
     if isinstance(error, commands.CommandNotFound):
         return
     elif isinstance(error, commands.CommandError):
