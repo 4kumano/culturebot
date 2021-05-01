@@ -1,8 +1,11 @@
 from datetime import datetime, timedelta
+from typing import Optional
 import discord
 from discord import User, Member
 from discord.channel import TextChannel
+from discord.guild import Guild
 from discord.permissions import PermissionOverwrite
+from discord.role import Role
 from config import config, logger
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
@@ -33,11 +36,31 @@ class Moderation(commands.Cog, name="moderation"):
         channels = channels or ctx.guild.channels
         deleted = 0
         for channel in channels:
-            deleted += await ctx.channel.purge(
+            deleted += await channel.purge(
                 limit=None,
                 check=lambda m: m.author == user,
                 before=datetime.now() - timedelta(days=1))
         await ctx.send(f"Deleted {deleted} messages.")
+    
+    async def get_muted_role(self, guild: Guild, update: bool = True) -> Optional[Role]:
+        """Returns the muted role or creates one."""
+        role = discord.utils.find(lambda r: r.name.lower() == 'muted', guild.roles)
+        if not update:
+            return role
+
+        if role is None:
+            role = await guild.create_role(name='muted')
+        # update mute perms
+        overwrite = discord.PermissionOverwrite(
+            send_messages=False,
+            add_reactions=False
+        )
+        for channel in guild.text_channels:
+            if channel.permissions_synced:
+                channel = channel.category
+            await channel.set_permissions(role, overwrite=overwrite)
+        
+        return role
 
     @commands.command('mute')
     @commands.has_permissions(manage_messages=True)
@@ -50,23 +73,7 @@ class Moderation(commands.Cog, name="moderation"):
         if member.bot:
             await ctx.send('Cannot mute a bot.')
             return
-        role = discord.utils.get(ctx.guild.roles, name='muted')
-        if role is None:
-            role = await ctx.guild.create_role(name='muted')
-        # update mute perms
-        overwrite = discord.PermissionOverwrite(
-            send_messages=False,
-            add_reactions=False
-        )
-        for channel in ctx.guild.text_channels:
-            if channel.permissions_synced:
-                channel = channel.category
-            await channel.set_permissions(role, overwrite=overwrite)
-
-        if role not in member.roles:
-            await ctx.send(f'{member} is already muted')
-            return
-
+        role = await self.get_muted_role(ctx.guild)
         await member.add_roles(role, reason=reason)
         await ctx.send(f'Muted {member}')
 
@@ -75,7 +82,7 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self, ctx: Context, member: Member):
         """Unmutes a member from all channels."""
-        role = discord.utils.get(ctx.guild.roles, name='muted')
+        role = await self.get_muted_role(ctx.guild, update=False)
         if role is None:
             await ctx.send("A muted role doesn't even exist.")
             return
@@ -90,16 +97,16 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.bot_has_permissions(manage_channels=True)
     async def lock(self, ctx: Context, channel: TextChannel = None):
         channel = channel or ctx.channel
-        ctx.send(f'Locked {channel} :lock:')
-        channel.set_permissions(ctx.guild.roles[0], send_messages=False)
+        await ctx.send(f'Locked {channel.mention} :lock:')
+        await channel.set_permissions(ctx.guild.roles[0], send_messages=False)
 
     @commands.command('unlock')
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
-    async def lock(self, ctx: Context, channel: TextChannel = None):
+    async def unlock(self, ctx: Context, channel: TextChannel = None):
         channel = channel or ctx.channel
-        ctx.send(f'Unlocked {channel} :unlock:')
-        channel.set_permissions(ctx.guild.roles[0], overwrite=None)
+        await channel.set_permissions(ctx.guild.roles[0], overwrite=None)
+        await ctx.send(f'Unlocked {channel.mention} :unlock:')
 
 
 def setup(bot):
