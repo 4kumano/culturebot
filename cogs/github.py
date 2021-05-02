@@ -17,6 +17,7 @@ class Anilist(commands.Cog, name="github"):
         self.bot = bot
         self.user = config['github']['user']
         self.repos = config['github']['repos'].split(',')
+        self.token = config['github']['token']
         self.session = aiohttp.ClientSession()
 
     @commands.Cog.listener()
@@ -46,10 +47,11 @@ class Anilist(commands.Cog, name="github"):
     async def update_commit_activity(self, repo: str, since: datetime):
         async with self.session.get(
             self.url.format(user=self.user, repo=repo),
-            params=dict(since=since.isoformat(), per_page=100)
+            params=dict(since=since.isoformat(), per_page=100),
+            headers={"Authorization": f"token {self.token}"}
         ) as r:
             data = await r.json()
-
+        
         for commit in reversed(data):
             commmit_name, _, message = commit['commit']['message'].partition(
                 '\n\n')

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import aiohttp
 import discord
@@ -64,7 +64,10 @@ query ($id: Int, $last: Int) {
 
     @tasks.loop(minutes=10)
     async def fetch_activity(self):
-        """Fetches new anilist activity"""
+        """Fetches new anilist activity.
+        
+        Doesn't give a fuck about timezones because I don't either.
+        """
         last = 0
         async for msg in self.channel.history():
             if not msg.embeds:
@@ -83,7 +86,7 @@ query ($id: Int, $last: Int) {
                 description = f"{activity['status']} {activity['progress']} of {anime}"
             else:
                 description = f"{activity['status']} {anime}"
-
+            
             embed = discord.Embed(
                 title="anilist status",
                 description=description,

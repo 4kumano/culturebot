@@ -67,7 +67,7 @@ class Osu(commands.Cog, name="osu"):
                 last = e.timestamp
                 break
         
-        data: list = await self.request('https://osu.ppy.sh/api/v2/users/16573307/scores/best?limit=50')
+        data: list = await self.request('https://osu.ppy.sh/api/v2/users/16573307/scores/best?limit=20')
         data.sort(key=lambda x: x['created_at'])
         
         for score in data[-10:]:
@@ -77,7 +77,7 @@ class Osu(commands.Cog, name="osu"):
             
             embed = discord.Embed(
                 title="osu highscore", 
-                description=f"A new top 50 score:\n[{score['beatmapset']['title']}]({score['beatmap']['url']})", 
+                description=f"A new top 20 score:\n[{score['beatmapset']['title']}]({score['beatmap']['url']})", 
                 color=0xff66aa,
                 timestamp=t
             ).set_author(
@@ -88,7 +88,7 @@ class Osu(commands.Cog, name="osu"):
                 url=score['beatmapset']['covers']['list@2x']
             ).add_field(
                 name="stats", 
-                value=f"diffficulty: {score['beatmap']['version']}\n"
+                value=f"version: {score['beatmap']['version']} ({score['beatmap']['difficulty_rating']} stars)\n"
                       f"{round(score['pp'])}pp | rank {score['rank']} | {round(score['accuracy']*100,2)}% accuracy | {score['score']} score ", 
                 inline=False
             ).set_footer(
