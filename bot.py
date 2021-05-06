@@ -5,6 +5,7 @@ import discord
 from discord import Message, Color
 from discord.ext import commands
 from discord.ext.commands import Context
+from discord.ext.commands.errors import CommandError
 from pretty_help import PrettyHelp
 
 from config import config, logger
@@ -29,7 +30,7 @@ bot = commands.Bot(
 )
 
 for file in os.listdir('./cogs'):
-    if file.endswith(".py"):
+    if file.endswith(".py") and not file[0]=='_':
         extension = file[:-3]
         try:
             bot.load_extension(f"cogs.{extension}")
@@ -52,7 +53,12 @@ async def on_message(message: Message):
 @bot.event
 async def on_command_error(ctx: Context, error: Exception):
     msg = error.args[0]
-    if isinstance(error, commands.CommandNotFound):
+    if isinstance(error, commands.CommandInvokeError):
+        e = error.original
+        tb = traceback.format_exception(type(e),e,e.__traceback__)
+        await ctx.send('Something went horribly wrong, this is the traceback:')
+        await ctx.send('```\n'+''.join(tb)+'```')
+    elif isinstance(error, commands.CommandNotFound):
         return
     elif isinstance(error, commands.CommandError):
         await ctx.send(f":exclamation: {msg}",delete_after=10)
