@@ -1,29 +1,46 @@
-import os
 import random
 from typing import List
 
+import aiohttp
 import discord
 from config import config, logger
-from discord import TextChannel
-from discord.ext import commands
+from discord import TextChannel, File
+from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
+from pydrive.files import GoogleDriveFile
 
+from utils import PyDrive
 
 class Memes(commands.Cog, name="memes"):
     """A utility cog for reposting memes."""
-    memebin: TextChannel
-    _memes: List[str] = []
-
+    _memes: List[GoogleDriveFile] = []
+        
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.meme_folder = config['memes']['meme_folder']
-        self.running_on_sever = not os.path.isdir(self.meme_folder)
+        self.session = aiohttp.ClientSession()
 
     @commands.Cog.listener()
     async def on_ready(self):
-        channel = config['memes'].getint('memebin_channel')
-        self.memebin = await self.bot.fetch_channel(channel)
-        self._memes = [msg.attachments[0].url for msg in await self.memebin.history(limit=None).flatten()]
+        self.drive = PyDrive(directory=config['memes']['folder'])
+        self.update_memes.start()
+    
+    def cog_unload(self):
+        self.update_memes.cancel()
+        if not self.session.closed:
+            self.bot.loop.create_task(self.session.close())
+    
+    @tasks.loop(hours=6)
+    async def update_memes(self):
+        """Updates the meme files"""
+        self._memes = [i for i in self.drive.listdir() if i['downloadUrl']]
+        random.shuffle(self._memes)
+    
+    async def _get_meme(self, file: GoogleDriveFile) -> File:
+        """Gets a discord file object from a pydrive file object"""
+        if file.content is None:
+            file.FetchContent()
+        
+        return File(file.content, file['title'])
 
     @commands.command('meme', aliases=['randommeme', 'memes'], invoke_without_command=True)
     async def meme(self, ctx: Context):
@@ -31,11 +48,10 @@ class Memes(commands.Cog, name="memes"):
 
         All memes are gotten from a meme bin channel.
         """
-        if self._memes:
-            logger.debug(f'Sending meme to {ctx.guild}/{ctx.channel}')
-            await ctx.send(random.choice(self._memes))
-        else:
-            await ctx.send('https://tenor.com/view/loading-discord-loading-discord-boxes-squares-gif-16187521')
+        logger.debug(f'Sending meme to {ctx.guild}/{ctx.channel}')
+        await ctx.trigger_typing()
+        file = await self._get_meme(random.choice(self._memes))
+        await ctx.send(file=file)
 
     @commands.command('repost', aliases=['memerepost', 'repostmeme'])
     async def repost(self, ctx: Context, channel: TextChannel = None):
@@ -45,11 +61,10 @@ class Memes(commands.Cog, name="memes"):
         and then posts it in the current channel. You can specify which channel to repost from.
         """
         if channel is None:
-            channels = [
-                channel for channel in ctx.guild.text_channels if 'meme' in channel.name]
+            channels = [channel for channel in ctx.guild.text_channels 
+                        if 'meme' in channel.name]
             if not channels:
-                ctx.send(
-                    'No meme channels found, make sure this bot can see them.')
+                ctx.send('No meme channels found, make sure this bot can see them.')
                 return
 
             channel = random.choice(channels)
@@ -65,66 +80,6 @@ class Memes(commands.Cog, name="memes"):
             return
 
         await ctx.send(random.choice(memes))
-
-    @commands.command('update_memebin', hidden=True)
-    @commands.is_owner()
-    async def update_memebin(self, ctx: Context):
-        """Dumps all memes from the owner's meme folder into a memebin.
-
-        This can only be used by the owner. The uploaded memes will not be sorted.
-        """
-        if self.running_on_sever:
-            return
-
-        logger.info('Updating memebin!')
-
-        memes = set(os.listdir(self.meme_folder))
-        await ctx.send(f'Found {len(memes)} memes in your folder. Now filtering unwanted memes...')
-
-        uploaded = set()
-        todelete = []
-        async for msg in self.memebin.history(limit=None):
-            if len(msg.attachments) != 1:
-                todelete.append(msg)  # normal message
-                continue
-
-            file = msg.attachments[0]
-            if file.filename not in memes:
-                todelete.append(msg)  # unwanted meme
-                continue
-            if file.filename in uploaded:
-                todelete.append(msg)  # repost
-                continue
-
-            uploaded.add(file.filename)
-
-        toupload = memes - uploaded
-
-        await ctx.send(f'Found {len(uploaded)} uploaded memes, '
-                       f'that means {len(toupload)} memes will be uploaded and {len(todelete)} will be deleted.\n'
-                       f'Proceed? [y/n]')
-        response = await self.bot.wait_for('message', check=lambda msg: msg.author == ctx.author)
-        if response.content.lower() != 'y':
-            await ctx.send('Aborted!')
-            return
-
-        await ctx.send(f'Deleting {len(todelete)} messages...')
-        for msg in todelete:
-            await msg.delete()
-
-        await ctx.send(f'Uploading {len(toupload)} memes...')
-        for file in toupload:
-            try:
-                with open(os.path.join(self.meme_folder, file), 'rb') as fp:
-                    msg = await self.memebin.send(file=discord.File(fp, file))
-                    self._memes.append(msg.attachments[0].url)
-            except discord.HTTPException as e:
-                if e.status == 413:
-                    await ctx.send(f'Cannot upload `{file}`: Too large')
-                else:
-                    await ctx.send(f'Unexpected error when uploading `{file}`: {e}')
-
-        await ctx.send(f'{ctx.author.mention} Finished sending memes!')
 
     @commands.command('dump_memes', hidden=True)
     @commands.is_owner()

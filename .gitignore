@@ -1,5 +1,11 @@
+# python
 __pycache__
 config.cfg
+# misc
 logs/
 assets/*
+# rpg
 *simplerpg*
+# drive
+pydrive_settings.yaml
+drive_credentials.json
