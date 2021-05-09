@@ -23,7 +23,7 @@ class Moderation(commands.Cog, name="moderation"):
     async def purge(self, ctx: Context, limit: int = 10):
         """Purges a set amount of messages from all users in the current channel"""
         deleted = await ctx.channel.purge(limit=limit)
-        await ctx.send(f"Deleted {deleted} messages.")
+        await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
 
     @commands.command('prune')
     @commands.has_permissions(manage_messages=True)
@@ -40,7 +40,7 @@ class Moderation(commands.Cog, name="moderation"):
                 limit=None,
                 check=lambda m: m.author == user,
                 before=datetime.now() - timedelta(days=1))
-        await ctx.send(f"Deleted {deleted} messages.")
+        await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
     
     async def get_muted_role(self, guild: Guild, update: bool = True) -> Optional[Role]:
         """Returns the muted role or creates one."""

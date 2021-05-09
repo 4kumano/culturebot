@@ -121,7 +121,7 @@ class Entity:
         if (len(self.move_history) >= 2 and
             self.move_history[-1] == self.move_history[-2] and
             self.move_history[-1] in moves
-            ):
+        ):
             moves.remove(self.move_history[-1])
         return moves
 

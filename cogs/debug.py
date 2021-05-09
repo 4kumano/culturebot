@@ -51,7 +51,7 @@ class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_ow
         except:
             pass
         
-        return ''
+        return 'None'
     
     _code_re = re.compile(r'(?:```\w{0,2}|`)([^`]+?)(?:```|`)', re.M)
     @commands.command('run')
@@ -64,7 +64,9 @@ class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_ow
             'author': ctx.author,
             'guild': ctx.guild,
             'message': ctx.message,
-            '_': self.last_return
+            '_': self.last_return,
+            
+            'pprint': __import__('pprint').pprint
         }
         
         for code in re.findall(self._code_re, string):
