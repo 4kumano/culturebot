@@ -1,9 +1,12 @@
+import time
+
 import discord
 from config import config
 from discord import Forbidden
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
+start_time = time.time()
 
 class General(commands.Cog, name="general"):
     """General all-purpose commands every bot has"""
@@ -32,7 +35,10 @@ class General(commands.Cog, name="general"):
             value=config['bot']['prefix']
         ).add_field(
             name="Made with:",
-            value=f"Python"
+            value="Python"
+        ).add_field(
+            name="Uptime:",
+            value=time.time() - start_time
         ).set_footer(
             text=f"requested by {ctx.message.author}",
             icon_url=ctx.message.author.avatar_url
