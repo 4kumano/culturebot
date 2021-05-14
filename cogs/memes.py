@@ -1,7 +1,10 @@
+import asyncio
+import io
 import os
 import random
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
+from functools import lru_cache
 
 import aiohttp
 import discord
@@ -11,16 +14,16 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
-from pydrive.files import GoogleDriveFile
+from pydrive.files import ApiRequestError, GoogleDriveFile
 
 
 class PyDrive:
     """Manages drive actions through a simple api"""
     def __init__(self, settings_file: str = 'pydrive_settings.yaml', directory: str = 'memebin'):
         """Authenticates and connects to drive."""
-        gauth = GoogleAuth(settings_file)
-        gauth.LocalWebserverAuth()
-        self.drive = GoogleDrive(gauth)
+        auth = GoogleAuth(settings_file)
+        auth.LocalWebserverAuth()
+        self.drive = GoogleDrive(auth)
         self.directory = self._get_directory(directory)
 
     def _get_directory(self, directory: str) -> GoogleDriveFile:
@@ -40,10 +43,10 @@ class PyDrive:
         """Gets parents from directories."""
         return [{'id': i['id']} for i in directories]
 
-    def upload(self, path: str, filename: str = None, update: bool = True) -> GoogleDriveFile:
+    def upload(self, path: str, filename: str = None) -> GoogleDriveFile:
         """Uploads a file"""
         # default to None when not updating
-        file = self.find_file(filename) if update else None
+        file = self.find_file(filename) if filename else None
 
         if file is None:
             file = self.drive.CreateFile()
@@ -130,14 +133,18 @@ class Memes(commands.Cog, name="memes"):
     def __init__(self, bot: Bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
+        self.executor = ThreadPoolExecutor()
 
     @commands.Cog.listener()
     async def on_ready(self):
         self.drive = PyDrive(directory=config['memes']['folder'])
         self.update_memes.start()
+        while True:
+            await asyncio.sleep(0.1)
 
     def cog_unload(self):
         self.update_memes.cancel()
+        self.executor.shutdown(cancel_futures=True)
         if not self.session.closed:
             self.bot.loop.create_task(self.session.close())
 
@@ -147,46 +154,54 @@ class Memes(commands.Cog, name="memes"):
         self._memes = [i for i in self.drive.listdir() 
                        if i['downloadUrl'] and int(i['fileSize']) < 0x100000]
         random.shuffle(self._memes)
-
-    async def _get_random_meme(self) -> File:
-        """Gets a discord file object from a random meme"""
-        file = random.choice(self._memes)
+    
+    async def _download_file(self, file: GoogleDriveFile) -> Optional[File]:
+        """Gets a single discord file objects from drive file objects"""
         if file.content is None:
-            file.FetchContent()
-
+            try: 
+                await asyncio.wrap_future(self.executor.submit(file.FetchContent))
+            except ApiRequestError: 
+                return None
+        
         return File(file.content, file['title'])
 
-    @commands.command('meme', aliases=['randommeme', 'memes'], invoke_without_command=True)
-    async def meme(self, ctx: Context):
+    async def _download_files(self, files: List[GoogleDriveFile]) -> List[File]:
+        """Gets discord file objects from drive file objects"""
+        downloaded = await asyncio.gather(*[self._download_file(file) for file in files])
+        return [file for file in downloaded if file is not None]
+
+    @commands.command('meme', aliases=['randommeme', 'memes'])
+    async def meme(self, ctx: Context, amount: int = 1):
         """Sends a random meme from the owner's meme folder.
 
-        Make take a second to upload the file when the bot 
-        is configured to upload instead of sending links.
+        Make take up to 1s to upload the file when the bot 
+        is configured to upload directly instead of sending links.
+        
+        If an amount is set then the bot sends that many memes, max is 10.
         """
-        logger.debug(f'Sending meme to {ctx.guild}/{ctx.channel}')
+        amount = min(amount, 10)
         await ctx.trigger_typing()
-        file = await self._get_random_meme()
-        await ctx.send(file=file)
+        files = await self._download_files(random.sample(self._memes, amount))
+        await ctx.send(files=files)
 
     @commands.command('repost', aliases=['memerepost', 'repostmeme'])
     async def repost(self, ctx: Context, channel: TextChannel = None):
         """Reposts a random meme from meme channels in the server
 
         Looks thorugh the last 100 messages in every channel with meme in its name
-        and then posts it in the current channel. You can specify which channel to repost from.
+        and then reposts a random meme from them in the current channel. 
+        You can specify which channel to repost from.
         """
         if channel is None:
             channels = [channel for channel in ctx.guild.text_channels
                         if 'meme' in channel.name]
             if not channels:
-                ctx.send(
-                    'No meme channels found, make sure this bot can see them.')
+                await ctx.send('No meme channels found, make sure this bot can see them.')
                 return
 
             channel = random.choice(channels)
 
-        logger.debug(
-            f'Reposting meme from {channel.guild}/{channel} to {ctx.guild}/{ctx.channel}')
+        logger.debug(f'Reposting meme from {channel} to {ctx.channel}')
         memes = []
         async for msg in channel.history():
             memes += [i.url for i in msg.attachments]
@@ -205,8 +220,9 @@ class Memes(commands.Cog, name="memes"):
         This can only be used by the owner.
         """
         channel = channel or ctx.channel
-        async for msg in self.memebin.history(limit=None):
-            await channel.send(msg.attachments[0].url)
+        for file in self.drive.listdir():
+            file = await self._download_files(file)
+            await channel.send(file=file)
 
 
 def setup(bot):

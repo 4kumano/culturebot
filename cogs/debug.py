@@ -55,7 +55,7 @@ class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_ow
     
     _code_re = re.compile(r'(?:```\w{0,2}|`)([^`]+?)(?:```|`)', re.M)
     @commands.command('run')
-    async def run(self, ctx: Context, *, string: str):
+    async def run(self, ctx: Context, *, string: str = ''):
         """Runs python code in all codeblocks in the message."""
         env = {
             'bot': self.bot,
@@ -66,7 +66,8 @@ class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_ow
             'message': ctx.message,
             '_': self.last_return,
             
-            'pprint': __import__('pprint').pprint
+            'pprint': __import__('pprint').pprint,
+            'json': __import__('json')
         }
         
         for code in re.findall(self._code_re, string):

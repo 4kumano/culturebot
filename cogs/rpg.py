@@ -74,8 +74,12 @@ class RPG(commands.Cog, name='rpg'):
                 
                 move = await discord_choice(
                     self.bot, msg, ctx.author,
-                    hero.possible_moves
+                    hero.possible_moves,
+                    delete_after_timeout=True
                 )
+                if move is None:
+                    await ctx.send('TIMEOUT')
+                    return
                 enemy_move = enemy.decide_move(hero, difficulty)
 
                 enemy.determine_move(enemy_move, hero, move)
@@ -121,7 +125,7 @@ class RPG(commands.Cog, name='rpg'):
             self.bot, msg, ctx.author,
             dict(zip(['🟩', '🟨', '🟥'], [1, 2, 3]))
         )
-        if choice is None:
+        if difficulty is None:
             return
         await msg.edit(content=f"Now playing as {hero.name} on {['dev','easy','normal','hard'][difficulty]}")
 

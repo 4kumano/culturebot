@@ -229,6 +229,7 @@ class Enemy(Entity):
             #     return Move.SPECIAL
             else:
                 return random.choice(self.possible_moves)
+        raise NotImplementedError
 
 
 class Boss(Enemy):

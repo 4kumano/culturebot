@@ -8,7 +8,7 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 
 
-class Anilist(commands.Cog, name="github"):
+class Github(commands.Cog, name="github"):
     """A bot that posts whatever anime the owner watches."""
     url = "https://api.github.com/repos/{user}/{repo}/commits"
     channel: TextChannel
@@ -80,4 +80,4 @@ class Anilist(commands.Cog, name="github"):
 
 
 def setup(bot):
-    bot.add_cog(Anilist(bot))
+    bot.add_cog(Github(bot))

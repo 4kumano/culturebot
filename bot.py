@@ -19,7 +19,7 @@ intents = discord.Intents.default()
 intents.members = True
 
 bot = commands.Bot(
-    commands.when_mentioned_or(config['bot']['prefix']),
+    commands.when_mentioned_or(*config['bot']['prefix'].split(' ')),
     case_insensitive=True,
     help_command=PrettyHelp(
         color=0x42F56C,
@@ -57,7 +57,7 @@ async def on_command_error(ctx: Context, error: Exception):
         e = error.original
         tb = traceback.format_exception(type(e),e,e.__traceback__)
         await ctx.send('Something went horribly wrong, this is the traceback:')
-        await ctx.send('```\n'+''.join(tb)+'```')
+        await ctx.send('```\n'+''.join(tb)[:1990]+'```')
     elif isinstance(error, commands.CommandNotFound):
         return
     elif isinstance(error, commands.CommandError):

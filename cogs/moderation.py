@@ -22,7 +22,7 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.bot_has_permissions(manage_messages=True)
     async def purge(self, ctx: Context, limit: int = 10):
         """Purges a set amount of messages from all users in the current channel"""
-        deleted = await ctx.channel.purge(limit=limit)
+        deleted = await ctx.channel.purge(limit=limit + 1)
         await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
 
     @commands.command('prune')
@@ -34,7 +34,7 @@ class Moderation(commands.Cog, name="moderation"):
         Can specify which channels to purge.
         """
         channels = channels or ctx.guild.channels
-        deleted = 0
+        deleted = []
         for channel in channels:
             deleted += await channel.purge(
                 limit=None,
