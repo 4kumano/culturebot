@@ -219,9 +219,9 @@ class Memes(commands.Cog, name="memes"):
 
         This can only be used by the owner.
         """
-        channel = channel or ctx.channel
+        channel = channel or ctx.channel # type: ignore
         for file in self.drive.listdir():
-            file = await self._download_files(file)
+            file = await self._download_file(file)
             await channel.send(file=file)
 
 

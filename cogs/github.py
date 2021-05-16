@@ -22,7 +22,7 @@ class Github(commands.Cog, name="github"):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.channel = await self.bot.fetch_channel(config['github'].getint('channel'))
+        self.channel = await self.bot.fetch_channel(config['github'].getint('channel')) # type: ignore
         self.fetch_commits.start()
 
     def cog_unload(self):
@@ -39,7 +39,7 @@ class Github(commands.Cog, name="github"):
                 if not msg.embeds:
                     continue
                 e = msg.embeds[0]
-                if e.title == 'github commit' and repo in e.description:
+                if e.title == 'github commit' and e.timestamp and repo in e.description: # type: ignore
                     since = e.timestamp
                     break
             await self.update_commit_activity(repo, since)

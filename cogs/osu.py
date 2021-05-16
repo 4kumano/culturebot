@@ -24,7 +24,7 @@ class Osu(commands.Cog, name="osu"):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.channel = await self.bot.fetch_channel(config['osu'].getint('channel'))
+        self.channel = await self.bot.fetch_channel(config['osu'].getint('channel')) # type: ignore
         self.fetch_scores.start()
 
     def cog_unload(self):
@@ -63,7 +63,7 @@ class Osu(commands.Cog, name="osu"):
             if not msg.embeds:
                 continue
             e = msg.embeds[0]
-            if msg.embeds and e.title == 'osu highscore':
+            if msg.embeds and e.title == 'osu highscore' and e.timestamp:
                 last = e.timestamp
                 break
         

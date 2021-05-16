@@ -54,7 +54,7 @@ query ($id: Int, $last: Int) {
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.channel = await self.bot.fetch_channel(config['anilist'].getint('channel'))
+        self.channel = await self.bot.fetch_channel(config['anilist'].getint('channel')) # type: ignore
         self.fetch_activity.start()
 
     def cog_unload(self):

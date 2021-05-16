@@ -20,9 +20,10 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.command('purge')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def purge(self, ctx: Context, limit: int = 10):
+    async def purge(self, ctx: Context, limit: int = 10, channel: TextChannel = None):
         """Purges a set amount of messages from all users in the current channel"""
-        deleted = await ctx.channel.purge(limit=limit + 1)
+        channel = channel or ctx.channel # type: ignore
+        deleted = await channel.purge(limit=limit + 1)
         await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
 
     @commands.command('prune')
@@ -33,21 +34,19 @@ class Moderation(commands.Cog, name="moderation"):
 
         Can specify which channels to purge.
         """
-        channels = channels or ctx.guild.channels
+        channels = channels or ctx.guild.channels # type: ignore
         deleted = []
         for channel in channels:
             deleted += await channel.purge(
                 limit=None,
                 check=lambda m: m.author == user,
                 before=datetime.now() - timedelta(days=1))
-        await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
+        await ctx.send(f"Deleted {len(deleted) - 1} messages.", delete_after=1)
     
-    async def get_muted_role(self, guild: Guild, update: bool = True) -> Optional[Role]:
+    async def get_muted_role(self, guild: Guild) -> Role:
         """Returns the muted role or creates one."""
         role = discord.utils.find(lambda r: r.name.lower() == 'muted', guild.roles)
-        if not update:
-            return role
-
+        
         if role is None:
             role = await guild.create_role(name='muted')
         # update mute perms
@@ -73,7 +72,7 @@ class Moderation(commands.Cog, name="moderation"):
         if member.bot:
             await ctx.send('Cannot mute a bot.')
             return
-        role = await self.get_muted_role(ctx.guild)
+        role = await self.get_muted_role(ctx.guild) # type: ignore
         await member.add_roles(role, reason=reason)
         await ctx.send(f'Muted {member}')
 
@@ -82,10 +81,7 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self, ctx: Context, member: Member):
         """Unmutes a member from all channels."""
-        role = await self.get_muted_role(ctx.guild, update=False)
-        if role is None:
-            await ctx.send("A muted role doesn't even exist.")
-            return
+        role = await self.get_muted_role(ctx.guild) # type: ignore
         if role not in member.roles:
             await ctx.send(f"{member} is not currently muted.")
             return
@@ -96,7 +92,7 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
     async def lock(self, ctx: Context, channel: TextChannel = None):
-        channel = channel or ctx.channel
+        channel = channel or ctx.channel # type: ignore
         await ctx.send(f'Locked {channel.mention} :lock:')
         await channel.set_permissions(ctx.guild.roles[0], send_messages=False)
 
@@ -104,7 +100,7 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
     async def unlock(self, ctx: Context, channel: TextChannel = None):
-        channel = channel or ctx.channel
+        channel = channel or ctx.channel # type: ignore
         await channel.set_permissions(ctx.guild.roles[0], overwrite=None)
         await ctx.send(f'Unlocked {channel.mention} :unlock:')
 

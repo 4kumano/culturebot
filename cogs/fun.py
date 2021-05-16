@@ -24,7 +24,7 @@ class Fun(commands.Cog, name="fun"):
         I ain't on twitter anyways.
         Because you bitches were spamming it's now limited to 1 per 5s.
         """
-        target = target or ctx.author
+        target = target or ctx.author # type: ignore
         soundeffect = discord.FFmpegPCMAudio(self.soundeffect)
         try:
             vc = await target.voice.channel.connect()

@@ -5,6 +5,7 @@ from typing import Optional, TypeVar, Union
 
 from discord import Message, User
 from discord.ext.commands import Bot
+from discord.member import Member
 
 T = TypeVar('T')
 
@@ -16,7 +17,7 @@ def multiline_join(strings: list[str], sep: str = '', prefix: str = '', suffix: 
 
 
 async def discord_choice(
-    bot: Bot, message: Message, user: User,
+    bot: Bot, message: Message, user: Union[User, Member],
     choices: Union[dict[str, T], list[T]],
     timeout: float = 60, delete_after_timeout: bool = True,
     cancel: Optional[str] = '❌'

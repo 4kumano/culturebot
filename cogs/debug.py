@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord.ext.commands import Context
 
 
-class Debug(commands.Cog, command_attrs=dict(hidden=True, checks=[commands.is_owner()])):
+class Debug(commands.Cog, name='debug', command_attrs=dict(hidden=True, checks=[commands.is_owner()])):
     """A Cog for command debugging. Owner only."""
     def __init__(self, bot):
         self.bot = bot
