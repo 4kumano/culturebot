@@ -53,8 +53,7 @@ class Github(commands.Cog, name="github"):
             data = await r.json()
         
         for commit in reversed(data):
-            commmit_name, _, message = commit['commit']['message'].partition(
-                '\n\n')
+            commmit_name, _, message = commit['commit']['message'].partition('\n\n')
             embed = discord.Embed(
                 title="github commit",
                 description=f"New commit in [{repo}]({commit['html_url']})",
