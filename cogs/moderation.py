@@ -1,12 +1,8 @@
 from datetime import datetime, timedelta
-from typing import Optional
+
 import discord
-from discord import User, Member
-from discord.channel import TextChannel
-from discord.guild import Guild
-from discord.permissions import PermissionOverwrite
-from discord.role import Role
 from config import config, logger
+from discord import Guild, Member, Role, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
