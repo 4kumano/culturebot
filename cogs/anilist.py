@@ -49,7 +49,7 @@ query ($id: Int, $last: Int) {
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.userid = config['anilist']['userid']
+        self.userid = config['anilist'].getint('userid')
         self.session = aiohttp.ClientSession()
 
     @commands.Cog.listener()

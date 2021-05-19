@@ -8,7 +8,7 @@ from discord.ext.commands import Bot, Context
 from pretty_help import DefaultMenu
 from utils import discord_choice, multiline_join, wrap
 
-from ._rpg import Entity, Hero, heroes
+from .rpg import Entity, Hero, heroes
 
 TUTORIAL = {
     'basics': {

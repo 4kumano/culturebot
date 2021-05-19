@@ -12,7 +12,7 @@ from config import config, logger
 from discord import File, TextChannel
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
-from pydrive.auth import GoogleAuth
+from pydrive.auth import GoogleAuth, LoadAuth
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
 
@@ -137,7 +137,7 @@ class Memes(commands.Cog, name="memes"):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.drive = PyDrive(directory=config['memes']['folder'])
+        self.drive = PyDrive(config['memes']['pydrive_settings'], config['memes']['folder'])
         self.update_memes.start()
         while True:
             await asyncio.sleep(0.1)
@@ -157,13 +157,12 @@ class Memes(commands.Cog, name="memes"):
     
     async def _download_file(self, file: GoogleDriveFile) -> Optional[File]:
         """Gets a single discord file objects from drive file objects"""
-        if file.content is None:
-            try: 
-                await asyncio.wrap_future(self.executor.submit(file.FetchContent))
-            except ApiRequestError: 
-                return None
-        
-        return File(file.content, file['title'])
+        func = LoadAuth(lambda self: io.BytesIO(self._DownloadFromUrl(self['downloadUrl'])))
+        try: 
+            content: io.BytesIO = await asyncio.wrap_future(self.executor.submit(func, file))
+        except ApiRequestError: 
+            return None
+        return File(content, file['title'])
 
     async def _download_files(self, files: List[GoogleDriveFile]) -> List[File]:
         """Gets discord file objects from drive file objects"""
@@ -220,9 +219,12 @@ class Memes(commands.Cog, name="memes"):
         This can only be used by the owner.
         """
         channel = channel or ctx.channel # type: ignore
-        for file in self.drive.listdir():
-            file = await self._download_file(file)
-            await channel.send(file=file)
+        path = config['memes']['localdir']
+        for file in os.listdir(path):
+            try:
+                await channel.send(file=File(os.path.join(path, file), file))
+            except discord.HTTPException:
+                pass
 
 
 def setup(bot):
@@ -230,5 +232,5 @@ def setup(bot):
 
 
 if __name__ == '__main__':
-    drive = PyDrive()
-    drive.upload_directory('C:/Users/D/Memes')
+    drive = PyDrive(config['memes']['pydrive_settings'], config['memes']['folder'])
+    drive.upload_directory(config['memes']['localdir'])

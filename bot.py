@@ -1,8 +1,10 @@
+import difflib
+import importlib.util
 import os
-
 import traceback
+
 import discord
-from discord import Message, Color
+from discord import Color, Message
 from discord.ext import commands
 from discord.ext.commands import Context
 from discord.ext.commands.errors import CommandError
@@ -19,7 +21,7 @@ intents = discord.Intents.default()
 intents.members = True
 
 bot = commands.Bot(
-    commands.when_mentioned_or(*config['bot']['prefix'].split(' ')),
+    commands.when_mentioned_or(config['bot']['prefix']),
     case_insensitive=True,
     help_command=PrettyHelp(
         color=0x42F56C,
@@ -30,14 +32,15 @@ bot = commands.Bot(
 )
 
 for file in os.listdir('./cogs'):
-    if file.endswith(".py") and not file[0]=='_':
-        extension = file[:-3]
-        try:
-            bot.load_extension(f"cogs.{extension}")
-            print(f"Loaded extension '{extension}'")
-        except Exception as e:
-            exception = traceback.format_exc()
-            logger.error(f"Failed to load extension {extension}\n{exception}")
+    if file[0] == '_':
+        continue
+    extension = os.path.splitext(file)[0]
+    try:
+        bot.load_extension(f"cogs.{extension}")
+        print(f"Loaded extension '{extension}'")
+    except Exception as e:
+        exception = traceback.format_exc()
+        logger.error(f"Failed to load extension {extension}\n{exception}")
 
 @bot.event
 async def on_ready():
@@ -59,7 +62,13 @@ async def on_command_error(ctx: Context, error: Exception):
         await ctx.send('Something went horribly wrong, this is the traceback:')
         await ctx.send('```\n'+''.join(tb)[:1990]+'```')
     elif isinstance(error, commands.CommandNotFound):
-        return
+        if not ctx.invoked_with:
+            return
+        match = difflib.get_close_matches(ctx.invoked_with, list(bot.all_commands), 1)
+        if match:
+            await ctx.send(f"Sorry I don't know what that is, did you perhaps mean `{match[0]}`?")
+        else:
+            await ctx.send(f"Sorry I don't know what that is.")
     elif isinstance(error, commands.CommandError):
         await ctx.send(f":exclamation: {msg}",delete_after=10)
     else:
