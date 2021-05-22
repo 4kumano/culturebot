@@ -1,8 +1,11 @@
+import argparse
 import io
 import textwrap
+from threading import local
 import traceback
 import re
 from contextlib import redirect_stdout
+from utils import DiscordArgparse
 
 from discord.ext import commands
 from discord.ext.commands import Context

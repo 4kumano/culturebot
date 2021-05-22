@@ -20,8 +20,9 @@ from config import config, logger
 intents = discord.Intents.default()
 intents.members = True
 
+prefixes = (config['bot']['prefix'], config['bot']['silent_prefix'])
 bot = commands.Bot(
-    commands.when_mentioned_or(config['bot']['prefix']),
+    commands.when_mentioned_or(*sorted(prefixes, key=len, reverse=True)),
     case_insensitive=True,
     help_command=PrettyHelp(
         color=0x42F56C,
@@ -66,12 +67,17 @@ async def on_command_error(ctx: Context, error: Exception):
             return
         match = difflib.get_close_matches(ctx.invoked_with, list(bot.all_commands), 1)
         if match:
-            await ctx.send(f"Sorry I don't know what that is, did you perhaps mean `{match[0]}`?")
+            await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is, did you perhaps mean `{match[0]}`?")
         else:
-            await ctx.send(f"Sorry I don't know what that is.")
+            await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is.")
     elif isinstance(error, commands.CommandError):
         await ctx.send(f":exclamation: {msg}",delete_after=10)
     else:
         raise error
+
+@bot.after_invoke
+async def after_invoke(ctx: Context):
+    if ctx.prefix == config['bot']['silent_prefix']:
+        await ctx.message.delete()
 
 bot.run(config['bot']['token'])

@@ -17,7 +17,7 @@ class Fun(commands.Cog, name="fun"):
         self.bot = bot
         self.soundeffect = config['fun']['soundeffect']
 
-    @commands.command('soundeffect', aliases=[config['fun'].get('soundeffectname')])
+    @commands.command('soundeffect', aliases=['sfx'])
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     async def play_soundeffect(self, ctx: Context, target: Member = None):
         """Joins user's VC and lets keemstar call him a nice word.
@@ -63,6 +63,17 @@ class Fun(commands.Cog, name="fun"):
 
         toss = random.random() > 0.5
         await ctx.send(f"Landed on {['Heads', 'Tails'][toss]}" + (f": {[heads,tails][toss]}" if heads else ''))
+    
+    @commands.command('mention', aliases=['annoy'])
+    @commands.has_permissions(mention_everyone=True)
+    @commands.guild_only()
+    async def mention(self, ctx: Context, type: str = 'here'):
+        """Silently mentions all users in a server and deletes the message"""
+        perms = ctx.channel.permissions_for(ctx.guild.me) # type: ignore
+        if perms.manage_messages:
+            await ctx.message.delete()
+        msg = await ctx.send('@'+type)
+        await msg.delete()
 
 
 def setup(bot):
