@@ -1,10 +1,15 @@
+from datetime import datetime
 import difflib
 import importlib.util
 import os
 import traceback
 
+from discord.enums import ActivityType
+from utils import chunkify, confirm, wrap
+
 import discord
 from discord import Color, Message
+from discord.channel import TextChannel
 from discord.ext import commands
 from discord.ext.commands import Context
 from discord.ext.commands.errors import CommandError
@@ -24,9 +29,10 @@ prefixes = (config['bot']['prefix'], config['bot']['silent_prefix'])
 bot = commands.Bot(
     commands.when_mentioned_or(*sorted(prefixes, key=len, reverse=True)),
     case_insensitive=True,
+    strip_after_prefix=True,
     help_command=PrettyHelp(
         color=0x42F56C,
-        ending_note="Prefix: c!",
+        ending_note="Prefix: >>",
         show_index=True
     ),
     intents=intents
@@ -46,6 +52,7 @@ for file in os.listdir('./cogs'):
 @bot.event
 async def on_ready():
     logger.info(f'Logged into {len(bot.guilds)} servers.')
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="hentai"))
 
 @bot.event
 async def on_message(message: Message):
@@ -53,15 +60,46 @@ async def on_message(message: Message):
         return
     await bot.process_commands(message)
 
+async def report_bug(ctx: Context, error: Exception):
+    """Reports a bug to a channel"""
+    channel_id = config['bot'].getint('bugreport')
+    channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+    if not isinstance(channel ,TextChannel):
+        raise ValueError(f'Bug report channel is not a text channel, but a {type(channel)}')
+
+    tb = traceback.format_exception(type(error), error, error.__traceback__)
+    chunks = chunkify(''.join(tb), newlines=True, wrapped=True)
+    
+    embed = discord.Embed(
+        color=discord.Colour.red(),
+        title=type(error).__name__,
+        url=ctx.message.jump_url,
+        timestamp=datetime.now()
+    ).set_author(
+        name=str(ctx.author),
+        icon_url=ctx.author.avatar_url
+    )
+    for chunk in chunks:
+        embed.add_field(
+            name='\u200b​',
+            value=chunk,
+            inline=False
+        )
+    
+    await channel.send(embed=embed)
 
 @bot.event
 async def on_command_error(ctx: Context, error: Exception):
     msg = error.args[0]
     if isinstance(error, commands.CommandInvokeError):
         e = error.original
-        tb = traceback.format_exception(type(e),e,e.__traceback__)
-        await ctx.send('Something went horribly wrong, this is the traceback:')
-        await ctx.send('```\n'+''.join(tb)[:1990]+'```')
+        msg = await ctx.send("We're sorry, something went wrong. Would you like to submit a bug report?")
+        if await confirm(bot, msg, ctx.author):
+            await ctx.send('Thank you, a bug report has been sent')
+            await report_bug(ctx, e)
+        else:
+            await msg.edit(content="We're sorry, something went wrong")
+    
     elif isinstance(error, commands.CommandNotFound):
         if not ctx.invoked_with:
             return
@@ -70,8 +108,10 @@ async def on_command_error(ctx: Context, error: Exception):
             await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is, did you perhaps mean `{match[0]}`?")
         else:
             await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is.")
+    
     elif isinstance(error, commands.CommandError):
-        await ctx.send(f":exclamation: {msg}",delete_after=10)
+        await ctx.send(msg)
+    
     else:
         raise error
 

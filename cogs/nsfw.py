@@ -103,7 +103,6 @@ class NSFW(commands.Cog, name='nsfw'):
         await ctx.send(embed=embed)
     
     @booru.command('raw')
-    @commands.is_nsfw()
     async def booru_raw(self, ctx: Context, tags: str = '', amount: int = 1):
         """Like booru excepts just sends the image without any embed
         
@@ -121,6 +120,7 @@ class NSFW(commands.Cog, name='nsfw'):
         
     
     @booru.command('export', aliases=['txt', 'file'])
+    @commands.is_nsfw()
     async def booru_export(self, ctx: Context, *tags):
         """Like booru except sends all found images as a list of links in a txt file"""
         posts = await self.search_danbooru(tags)
@@ -129,6 +129,7 @@ class NSFW(commands.Cog, name='nsfw'):
         await ctx.send(file=file)
     
     @commands.command('neko')
+    @commands.is_nsfw()
     async def neko(self, ctx: Context, category: str = 'neko'):
         """Sends a random image from nekos.life"""
         category = category.lower()
@@ -142,6 +143,7 @@ class NSFW(commands.Cog, name='nsfw'):
         await ctx.send(image)
     
     @commands.command('lewdneko')
+    @commands.is_nsfw()
     async def lewdneko(self, ctx: Context):
         """Sends a random lewd neko from nekos.life"""
         await self.neko(ctx, 'lewd')
@@ -154,6 +156,7 @@ class NSFW(commands.Cog, name='nsfw'):
         self._yiff_categories: List[List[str]] = [i['db'].split('.') for i in categories if 'animals' not in i['db']]
     
     @commands.command('yiff', aliases=['furry'])
+    @commands.is_nsfw()
     async def yiff(self, ctx: Context, category = 'Straight'):
         """Sends a random yiff image
         

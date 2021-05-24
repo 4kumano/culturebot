@@ -157,20 +157,16 @@ class Memes(commands.Cog, name="memes"):
     
     async def _download_file(self, file: GoogleDriveFile) -> Optional[File]:
         """Gets a single discord file objects from drive file objects"""
-        func = LoadAuth(lambda self: io.BytesIO(self._DownloadFromUrl(self['downloadUrl'])))
+        func = LoadAuth(lambda file: io.BytesIO(file._DownloadFromUrl(file['downloadUrl'])))
         try: 
-            content: io.BytesIO = await asyncio.wrap_future(self.executor.submit(func, file))
+            content = await asyncio.wrap_future(self.executor.submit(func, file))
         except ApiRequestError: 
             return None
         return File(content, file['title'])
 
-    async def _download_files(self, files: List[GoogleDriveFile]) -> List[File]:
-        """Gets discord file objects from drive file objects"""
-        downloaded = await asyncio.gather(*[self._download_file(file) for file in files])
-        return [file for file in downloaded if file is not None]
-
-    @commands.command('meme', aliases=['randommeme', 'memes'])
-    async def meme(self, ctx: Context, amount: int = 1):
+    @commands.command('meme', aliases=['randommeme'])
+    @commands.cooldown(2, 1, commands.BucketType.channel)
+    async def meme(self, ctx: Context):
         """Sends a random meme from the owner's meme folder.
 
         Make take up to 1s to upload the file when the bot 
@@ -178,10 +174,9 @@ class Memes(commands.Cog, name="memes"):
         
         If an amount is set then the bot sends that many memes, max is 10.
         """
-        amount = min(amount, 10)
         await ctx.trigger_typing()
-        files = await self._download_files(random.sample(self._memes, amount))
-        await ctx.send(files=files)
+        file = await self._download_file(random.choice(self._memes))
+        await ctx.send(file=file)
 
     @commands.command('repost', aliases=['memerepost', 'repostmeme'])
     async def repost(self, ctx: Context, channel: TextChannel = None):

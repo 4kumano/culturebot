@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
+from typing import Union
 
 import discord
 from config import config, logger
-from discord import Guild, Member, Role, TextChannel
+from discord import Guild, Member, Role, TextChannel, Message
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
@@ -16,10 +17,18 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.command('purge')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def purge(self, ctx: Context, limit: int = 10, channel: TextChannel = None):
-        """Purges a set amount of messages from all users in the current channel"""
-        channel = channel or ctx.channel # type: ignore
-        deleted = await channel.purge(limit=limit + 1)
+    async def purge(self, ctx: Context, limit: Union[Message, int] = 10):
+        """Purges a set amount of messages from all users in the current channel
+        
+        If a message id is passed in, all messages up to the message exclusive will be purged.
+        """
+        if not isinstance(ctx.channel, discord.TextChannel):
+            return # type check for dms
+        
+        if isinstance(limit, Message):
+            deleted = await ctx.channel.purge(limit=None, after=limit)
+        else:
+            deleted = await ctx.channel.purge(limit=limit + 1)
         await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
 
     @commands.command('prune')

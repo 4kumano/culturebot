@@ -45,6 +45,7 @@ query ($id: Int, $last: Int) {
   }
 }
     """
+    timezone_offset = timedelta(hours=2)
     channel: TextChannel
 
     def __init__(self, bot: Bot):
@@ -74,7 +75,8 @@ query ($id: Int, $last: Int) {
                 continue
             e = msg.embeds[0]
             if msg.embeds and e.title == 'anilist status':
-                last = int(e.timestamp.timestamp())
+                dt = e.timestamp + self.timezone_offset
+                last = int(dt.timestamp())
                 break
 
         data = await self.fetch_anilist(self.query, {'id': self.userid, 'last': last})
@@ -91,7 +93,7 @@ query ($id: Int, $last: Int) {
                 title="anilist status",
                 description=description,
                 color=discord.Color.green(),
-                timestamp=datetime.fromtimestamp(activity['createdAt'])
+                timestamp=datetime.fromtimestamp(activity['createdAt']) - self.timezone_offset
             ).set_author(
                 name=user['name'],
                 url=user['siteUrl'],

@@ -5,13 +5,13 @@ from threading import local
 import traceback
 import re
 from contextlib import redirect_stdout
-from utils import DiscordArgparse
+from utils import chunkify
 
 from discord.ext import commands
 from discord.ext.commands import Context
 
 
-class Debug(commands.Cog, name='debug', command_attrs=dict(hidden=True, checks=[commands.is_owner()])):
+class Debug(commands.Cog, name='debug'):
     """A Cog for command debugging. Owner only."""
     def __init__(self, bot):
         self.bot = bot
@@ -57,7 +57,8 @@ class Debug(commands.Cog, name='debug', command_attrs=dict(hidden=True, checks=[
         return 'None'
     
     _code_re = re.compile(r'(?:```\w{0,2}|`)([^`]+?)(?:```|`)', re.M)
-    @commands.command('run')
+    @commands.command('run', hidden=True)
+    @commands.is_owner()
     async def run(self, ctx: Context, *, string: str = ''):
         """Runs python code in all codeblocks in the message."""
         env = {
@@ -75,10 +76,12 @@ class Debug(commands.Cog, name='debug', command_attrs=dict(hidden=True, checks=[
         
         for code in re.findall(self._code_re, string):
             output = await self.run_code(code.strip(), env)
-            chunk_size = 1992
-            for i in range(0, len(output), chunk_size):
-                await ctx.send(f'```\n{output[i:i+chunk_size]}\n```')
-
-
+            for chunk in chunkify(output, newlines=True, wrapped=True):
+                await ctx.send(chunk)
+    
+    @commands.command('error', hidden=True)
+    async def raise_error(self, ctx: Context, *args: str):
+        raise Exception(args)
+    
 def setup(bot):
     bot.add_cog(Debug(bot))

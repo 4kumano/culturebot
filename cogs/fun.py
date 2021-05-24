@@ -1,9 +1,7 @@
 import asyncio
-from typing import Dict, List, Optional, Tuple, Union
 import random
 
 import discord
-from discord.channel import TextChannel
 from config import config, logger
 from discord import Member, User
 from discord.ext import commands
@@ -27,6 +25,9 @@ class Fun(commands.Cog, name="fun"):
         Because you bitches were spamming it's now limited to 1 per 5s.
         """
         target = target or ctx.author # type: ignore
+        if target.voice is None:
+            await ctx.send("Cannot play a soundeffect, the user is not in a vc")
+            return
         soundeffect = discord.FFmpegPCMAudio(self.soundeffect)
         try:
             vc = await target.voice.channel.connect()
@@ -36,7 +37,7 @@ class Fun(commands.Cog, name="fun"):
         vc.play(soundeffect)
         await asyncio.sleep(1)
         await vc.disconnect()
-        logger.debug(f'Played a soundeffect to {target}.')
+        logger.debug(f'{ctx.author} played a soundeffect to {target}.')
         
     @commands.command('roll', aliases=['dice', 'diceroll'])
     async def roll(self, ctx: Context, dice: str = '1d6'):

@@ -3,12 +3,14 @@ import argparse
 
 import asyncio
 import shlex
-from typing import Callable, List, Optional, TypeVar, Union
+from typing import Optional, TypeVar, Union
 
 from discord import Message, User
+from discord.errors import Forbidden, NotFound
 from discord.ext import commands
 from discord.ext.commands import Bot
 from discord.member import Member
+from functools import partial
 
 T = TypeVar('T')
 
@@ -18,13 +20,33 @@ def multiline_join(strings: list[str], sep: str = '', prefix: str = '', suffix: 
     parts = zip(*(str(i).splitlines() for i in strings))
     return '\n'.join(prefix+sep.join(i)+suffix for i in parts)
 
-def chunkify(string: str, max_size: int = 1950) -> list[str]:
+def chunkify(string: str, max_size: int = 1980, newlines: bool = False, wrapped: bool = False) -> list[str]:
     """Takes in a string and splits it into chunks that fit into a single discord message
     
     You may change the max_size to make this function work for embeds.
-    There is a 50 character leniency given to max_size by default.
+    There is a 20 character leniency given to max_size by default.
+    
+    If newlines is true the chunks are formatted with respect to newlines as long as that's possible.
+    If wrap is true the chunks will be individually wrapped in codeblocks.
     """
-    return [string[i:i+max_size] for i in range(0, len(string), max_size)]
+    if newlines:
+        chunks = ['']
+        for i in string.split('\n'): # keep whitespace
+            i += '\n'
+            if len(chunks[-1]) + len(i) < max_size:
+                chunks[-1] += i
+            elif len(i) > max_size:
+                # we don't wrap here because the wrapping will be done no matter what
+                chunks.extend(chunkify(i, max_size, newlines=False, wrapped=False))
+            else:
+                chunks.append(i)
+    else:
+        chunks = [string[i:i+max_size] for i in range(0, len(string), max_size)]
+    
+    if wrapped:
+        return [wrap(i) for i in chunks]
+    else:
+        return chunks
 
 async def discord_choice(
     bot: Bot, message: Message, user: Union[User, Member],
@@ -61,7 +83,12 @@ async def discord_choice(
             await message.delete()
         return None
     finally:
-        await message.clear_reactions()
+        try:
+            await message.clear_reactions()
+        except Forbidden:
+            pass
+        except NotFound:
+            return None
 
     if str(reaction) == cancel:
         if delete_after_timeout:
@@ -70,12 +97,28 @@ async def discord_choice(
 
     return reactions[str(reaction)]
 
+async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout: int = 15) -> bool:
+    """Confirms a message"""
+    yes, no = '✅', '❌'
+    await message.add_reaction(yes)
+    await message.add_reaction(no)
+    try:
+        reaction, _ = await bot.wait_for(
+            'reaction_add',
+            check=lambda r, u: str(r) in (yes, no) and u == user,
+            timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        return False
+    
+    return str(reaction) == yes
+    
 
 def wrap(*string: str, lang: str = '') -> str:
     """Wraps a string in codeblocks."""
     return f'```{lang}\n' + ''.join(string) + '\n```'
 
-class DiscordArgparse(commands.Converter, argparse.Namespace):
+class DiscordArgparse(argparse.Namespace):
     """An argument parser for discord.py build in argparse
     
     As oposed to using normal argparse as an annotation,
@@ -97,17 +140,17 @@ class DiscordArgparse(commands.Converter, argparse.Namespace):
     def __class_getitem__(cls, parser: argparse.ArgumentParser):
         """Initialize the converter with an ArgumentParser"""
         parser.exit_on_error = False # type: ignore
-        setattr(cls, 'parser', parser) # ensure linters don't expect a parser argument
-        return commands.Greedy[cls]
-
-    async def convert(self, ctx, argument: str) -> argparse.Namespace:
+        return partial(cls.convert, parser)
+    
+    @staticmethod
+    def convert(parser: argparse.ArgumentParser, argument: str) -> argparse.Namespace:
         try:
-            args, argv = self.parser.parse_known_args(shlex.split(argument))
+            args, argv = parser.parse_known_args(shlex.split(argument))
         except argparse.ArgumentError as e:
             raise commands.BadArgument(f'Could not parse arguments: {e.message}')
         if argv:
             raise commands.TooManyArguments(
                 f'Recieved {len(argv)} extra arguments: {", ".join(argv)}\n' 
-                + self.parser.format_usage()
+                + parser.format_usage()
             )
         return args
