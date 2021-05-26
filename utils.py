@@ -2,13 +2,15 @@ from __future__ import annotations
 import argparse
 
 import asyncio
-import shlex
+import shlex, re
 from typing import Optional, TypeVar, Union
 
 from discord import Message, User
+import discord
 from discord.errors import Forbidden, NotFound
 from discord.ext import commands
 from discord.ext.commands import Bot
+from discord.ext.commands.context import Context
 from discord.member import Member
 from functools import partial
 
@@ -85,8 +87,6 @@ async def discord_choice(
     finally:
         try:
             await message.clear_reactions()
-        except Forbidden:
-            pass
         except NotFound:
             return None
 
@@ -96,6 +96,21 @@ async def discord_choice(
         return None
 
     return reactions[str(reaction)]
+
+def bot_channel_only(regex: str = r'bot|spam', category: bool = True, dms: bool = True):
+    def predicate(ctx: Context):
+        channel = ctx.channel
+        if not isinstance(channel, discord.TextChannel):
+            if dms:
+                return True
+            raise commands.CheckFailure('Dms are not counted as a bot channel.')
+
+        if re.search(regex, channel.name) or category and re.search(regex, str(channel.category)):
+            return True
+
+        raise commands.CheckFailure('This channel is not a bot channel.')
+
+    return commands.check(predicate)
 
 async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout: int = 15) -> bool:
     """Confirms a message"""

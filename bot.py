@@ -26,14 +26,23 @@ intents = discord.Intents.default()
 intents.members = True
 
 prefixes = (config['bot']['prefix'], config['bot']['silent_prefix'])
+class PrettyHelpFix(PrettyHelp):
+    """A fix for a cog bug in PrettyHelp"""
+    async def send_pages(self):
+        try:
+            await super().send_pages()
+        except IndexError:
+            x: discord.TextChannel = self.get_destination()
+            x.typing()
+
 bot = commands.Bot(
     commands.when_mentioned_or(*sorted(prefixes, key=len, reverse=True)),
     case_insensitive=True,
     strip_after_prefix=True,
-    help_command=PrettyHelp(
+    help_command=PrettyHelpFix(
         color=0x42F56C,
         ending_note="Prefix: >>",
-        show_index=True
+        show_index=False
     ),
     intents=intents
 )
@@ -68,7 +77,7 @@ async def report_bug(ctx: Context, error: Exception):
         raise ValueError(f'Bug report channel is not a text channel, but a {type(channel)}')
 
     tb = traceback.format_exception(type(error), error, error.__traceback__)
-    chunks = chunkify(''.join(tb), newlines=True, wrapped=True)
+    chunks = chunkify(''.join(tb), 1000, newlines=True, wrapped=True)
     
     embed = discord.Embed(
         color=discord.Colour.red(),

@@ -34,18 +34,19 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.command('prune')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def prune(self, ctx: Context, user: Member, *channels: TextChannel):
+    async def prune(self, ctx: Context, user: Member, days: int = 1, *channels: TextChannel):
         """Purges all messages from a user from the last 24 hours.
 
         Can specify which channels to purge.
         """
-        channels = channels or ctx.guild.channels # type: ignore
+        channels = channels or ctx.guild.text_channels # type: ignore
         deleted = []
         for channel in channels:
+            await ctx.send(f'Deleting messages from {channel.mention}')
             deleted += await channel.purge(
                 limit=None,
                 check=lambda m: m.author == user,
-                before=datetime.now() - timedelta(days=1))
+                after=datetime.now() - timedelta(days=days))
         await ctx.send(f"Deleted {len(deleted) - 1} messages.", delete_after=1)
     
     async def get_muted_role(self, guild: Guild) -> Role:

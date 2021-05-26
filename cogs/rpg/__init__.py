@@ -6,7 +6,7 @@ from discord import Message
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 from pretty_help import DefaultMenu
-from utils import discord_choice, multiline_join, wrap
+from utils import bot_channel_only, discord_choice, multiline_join, wrap
 
 from .rpg import Entity, Hero, heroes
 
@@ -78,7 +78,6 @@ class RPG(commands.Cog, name='rpg'):
                     delete_after_timeout=True
                 )
                 if move is None:
-                    await ctx.send('TIMEOUT')
                     return
                 enemy_move = enemy.decide_move(hero, difficulty)
 
@@ -96,7 +95,9 @@ class RPG(commands.Cog, name='rpg'):
 
         await ctx.send('Game Over!')
 
-    @commands.group('rpg', aliases=['game', 'play'], invoke_without_command=True)
+    @commands.group('rpg', aliases=['game', 'play'], invoke_without_command=True, enabled=False)
+    @commands.bot_has_permissions(manage_messages=True)
+    @bot_channel_only()
     async def rpg(self, ctx: Context):
         """A rouge-like rpg game you can play with reactions.
 
@@ -106,8 +107,8 @@ class RPG(commands.Cog, name='rpg'):
 
         msg = await ctx.send(wrap(
             'Please pick a hero:\n'
-            "knight ⚔️ | bleed, makes the enemy lose stamina\n"
-            "rogue  🗡️ | dodge, dodge enemy attack\n"
+            "knight ⚔️ | bleed, steals enemy stamina\n"
+            "rogue  🗡️ | dodge, dodge enemy attack and deal damage back\n"
             "viking 🪓 | punch, deal high damage"))
         choice = await discord_choice(
             self.bot, msg, ctx.author,
@@ -131,7 +132,9 @@ class RPG(commands.Cog, name='rpg'):
 
         await self.gameloop(ctx, hero, difficulty)
 
-    @rpg.command('tutorial', aliases=['help', 'rpghelp'])
+    @rpg.command('tutorial', aliases=['help', 'rpghelp'], enabled=False)
+    @commands.bot_has_permissions(manage_messages=True)
+    @bot_channel_only()
     async def tutorial(self, ctx: Context):
         """An interactive tutorial for the rpg game."""
         embeds = []
@@ -150,13 +153,14 @@ class RPG(commands.Cog, name='rpg'):
 
         await self.menu.send_pages(ctx, ctx.channel, embeds)
 
-    @commands.command('tutorial', aliases=['rpghelp'])
+    @commands.command('tutorial', aliases=['rpghelp'], enabled=False)
+    @bot_channel_only()
     async def invoke_tutorial(self, ctx: Context):
         """An interactive tutorial for the rpg game.
 
         Shortcut for "rpg tutorial"
         """
-        await self.tutorial(ctx)
+        await self.tutorial.invoke(ctx)
 
 
 def setup(bot):

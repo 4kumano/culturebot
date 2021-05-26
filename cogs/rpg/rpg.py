@@ -92,14 +92,21 @@ class Entity:
     def copy(self):
         return deepcopy(self)
 
-    def use_special(self, other: Move):
+    def use_special(self, op: Entity, opmove: Move) -> str:
         """Uses a special move."""
-        if self.special is None:
-            raise ValueError("Entity does not have a special move.")
         if not self.charged:
             raise ValueError("Special move is not charged.")
 
-        raise NotImplementedError
+        if self.special is None:
+            raise ValueError("Entity does not have a special move.")
+        elif self.special == 'bleed':
+            take_st = min(self.special_level, op.stamina)
+            op.stamina -= take_st
+            self.health += take_st - 1
+        # elif self.special == 'dodge':
+        #     if 
+        
+        return ''
 
     @property
     def last_move(self) -> Optional[Move]:
@@ -148,7 +155,7 @@ class Entity:
         elif move == Move.CHARGE:
             self.charged = True
         elif move == Move.SPECIAL:
-            raise Warning("No specials, I'm way too fucking lazy")
+            self.use_special(op, opmove)
 
         past_tense_move = {
             Move.ATTACK: 'attacked',

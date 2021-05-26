@@ -1,11 +1,14 @@
 import asyncio
+from datetime import time
 import random
 
 import discord
+from discord.channel import TextChannel
 from config import config, logger
 from discord import Member, User
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
+from copy import deepcopy
 
 
 class Fun(commands.Cog, name="fun"):
@@ -75,6 +78,47 @@ class Fun(commands.Cog, name="fun"):
             await ctx.message.delete()
         msg = await ctx.send('@'+type)
         await msg.delete()
+    
+    @commands.command('channelswap', aliases=['swapchannels'])
+    @commands.bot_has_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_channels=True)
+    @commands.cooldown(2, 300, commands.BucketType.guild)
+    async def channel_swap(self, ctx: Context, a: TextChannel, b: TextChannel):
+        """Swaps two channels around, troll some members"""
+        old = [{attr:getattr(channel,attr) 
+                for attr in ('name', 'position', 'category')} 
+               for channel in (a,b)]
+        await a.edit(**old[1])
+        await b.edit(**old[0])
+        await ctx.send('Completed')
+    
+    @commands.command('fakeban')
+    @commands.bot_has_permissions(manage_channels=True, manage_messages=True)
+    @commands.has_guild_permissions(manage_channels=True)
+    @commands.cooldown(1, 300, commands.BucketType.guild)
+    async def fake_ban(self, ctx: Context, member: Member):
+        """Fake bans a member by removing their access to the all channels
+        
+        Beware: this will cause all permission overwrites to be cleared for them.
+        """
+        await ctx.message.delete()
+        for channel in member.guild.channels:
+            await channel.set_permissions(member, view_channel=False)
+        msg = await ctx.send(f'Banned {member}')
+        await msg.add_reaction('↩️')
+        try:
+            await self.bot.wait_for(
+                'reaction_add', 
+                check=lambda r,u: str(r) == '↩️' and u == ctx.author,
+                timeout=120
+            )
+        except asyncio.TimeoutError:
+            pass
+        
+        await msg.clear_reactions()
+        for channel in member.guild.channels:
+            await channel.set_permissions(member, overwrite=None)
+        
 
 
 def setup(bot):
