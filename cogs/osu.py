@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from utils import CCog
 
 import aiohttp
 import discord
@@ -10,7 +11,7 @@ from discord.ext.commands import Bot, Context
 import bisect
 
 
-class Osu(commands.Cog, name="osu"):
+class Osu(CCog, name="osu"):
     """A bot that posts whatever anime the owner watches."""
     expires_in: datetime = datetime.min
     access_token: str
@@ -19,12 +20,12 @@ class Osu(commands.Cog, name="osu"):
     def __init__(self, bot: Bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
-        self.client_id = config['osu']['clientid']
-        self.client_secret = config['osu']['secret']
+        self.client_id = self.config['clientid']
+        self.client_secret = self.config['secret']
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.channel = await self.bot.fetch_channel(config['osu'].getint('channel')) # type: ignore
+        self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
         self.fetch_scores.start()
 
     def cog_unload(self):

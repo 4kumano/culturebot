@@ -102,6 +102,12 @@ async def on_command_error(ctx: Context, error: Exception):
     msg = error.args[0]
     if isinstance(error, commands.CommandInvokeError):
         e = error.original
+        if await bot.is_owner(ctx.author):
+            tb = traceback.format_exception(type(error), error, error.__traceback__)
+            for chunk in chunkify(''.join(tb), newlines=True, wrapped=True):
+                await ctx.send(chunk)
+            return
+        
         msg = await ctx.send("We're sorry, something went wrong. Would you like to submit a bug report?")
         if await confirm(bot, msg, ctx.author):
             await ctx.send('Thank you, a bug report has been sent')

@@ -1,6 +1,7 @@
 import asyncio
 from datetime import time
 import random
+from utils import CCog
 
 import discord
 from discord.channel import TextChannel
@@ -11,12 +12,12 @@ from discord.ext.commands import Bot, Context
 from copy import deepcopy
 
 
-class Fun(commands.Cog, name="fun"):
+class Fun(CCog, name="fun"):
     """General "fun" commands to mess around."""
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.soundeffect = config['fun']['soundeffect']
+        self.soundeffect = self.config['soundeffect']
 
     @commands.command('soundeffect', aliases=['sfx'])
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)

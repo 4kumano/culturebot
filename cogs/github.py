@@ -1,4 +1,5 @@
 from datetime import datetime
+from utils import CCog
 
 import aiohttp
 import discord
@@ -8,21 +9,21 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 
 
-class Github(commands.Cog, name="github"):
+class Github(CCog, name="github"):
     """A bot that posts whatever anime the owner watches."""
     url = "https://api.github.com/repos/{user}/{repo}/commits"
     channel: TextChannel
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.user = config['github']['user']
-        self.repos = config['github']['repos'].split(',')
-        self.token = config['github']['token']
+        self.user = self.config['user']
+        self.repos = self.config['repos'].split(',')
+        self.token = self.config['token']
         self.session = aiohttp.ClientSession()
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.channel = await self.bot.fetch_channel(config['github'].getint('channel')) # type: ignore
+        self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
         self.fetch_commits.start()
 
     def cog_unload(self):

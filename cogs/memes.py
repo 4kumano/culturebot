@@ -4,7 +4,6 @@ import os
 import random
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
-from functools import lru_cache
 
 import aiohttp
 import discord
@@ -15,6 +14,7 @@ from discord.ext.commands import Bot, Context
 from pydrive.auth import GoogleAuth, LoadAuth
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
+from utils import CCog
 
 
 class PyDrive:
@@ -39,7 +39,7 @@ class PyDrive:
         return file
 
     @staticmethod
-    def _get_parents(*directories):
+    def _get_parents(*directories: GoogleDriveFile) -> List[dict]:
         """Gets parents from directories."""
         return [{'id': i['id']} for i in directories]
 
@@ -126,7 +126,7 @@ class PyDrive:
         print(f'Uploaded {len(files)} files')
 
 
-class Memes(commands.Cog, name="memes"):
+class Memes(CCog, name="memes"):
     """A utility cog for reposting memes."""
     _memes: List[GoogleDriveFile] = []
 
@@ -137,10 +137,8 @@ class Memes(commands.Cog, name="memes"):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.drive = PyDrive(config['memes']['pydrive_settings'], config['memes']['folder'])
+        self.drive = PyDrive(self.config['pydrive_settings'], self.config['folder'])
         self.update_memes.start()
-        while True:
-            await asyncio.sleep(0.1)
 
     def cog_unload(self):
         self.update_memes.cancel()
@@ -214,7 +212,7 @@ class Memes(commands.Cog, name="memes"):
         This can only be used by the owner.
         """
         channel = channel or ctx.channel # type: ignore
-        path = config['memes']['localdir']
+        path = self.config['localdir']
         for file in os.listdir(path):
             try:
                 await channel.send(file=File(os.path.join(path, file), file))

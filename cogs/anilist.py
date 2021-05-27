@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from utils import CCog
 
 import aiohttp
 import discord
@@ -8,7 +9,7 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 
 
-class Anilist(commands.Cog, name="anilist"):
+class Anilist(CCog, name="anilist"):
     """A bot that posts whatever anime the owner watches."""
     url = "https://graphql.anilist.co"
     query = """
@@ -50,12 +51,12 @@ query ($id: Int, $last: Int) {
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.userid = config['anilist'].getint('userid')
+        self.userid = self.config.getint('userid')
         self.session = aiohttp.ClientSession()
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.channel = await self.bot.fetch_channel(config['anilist'].getint('channel')) # type: ignore
+        self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
         self.fetch_activity.start()
 
     def cog_unload(self):

@@ -1,21 +1,30 @@
 from __future__ import annotations
-import argparse
 
+import argparse
 import asyncio
-import shlex, re
+import configparser
+import re
+import shlex
+from functools import partial
 from typing import Optional, TypeVar, Union
 
-from discord import Message, User
 import discord
-from discord.errors import Forbidden, NotFound
+from discord import Member, Message, NotFound, User
 from discord.ext import commands
-from discord.ext.commands import Bot
-from discord.ext.commands.context import Context
-from discord.member import Member
-from functools import partial
+from discord.ext.commands import Bot, Context
+
+from config import config
 
 T = TypeVar('T')
 
+class CCog(commands.Cog):
+    """A command with a config"""
+    config: configparser.SectionProxy
+    def __new__(cls, *args, **kwargs):
+        self = super().__new__(cls, *args, **kwargs)
+        if self.__cog_name__ in config:
+            self.config = config[self.__cog_name__]
+        return self
 
 def multiline_join(strings: list[str], sep: str = '', prefix: str = '', suffix: str = '') -> str:
     """Like str.join but multiline."""

@@ -2,6 +2,7 @@ import io
 import random
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 import textwrap
+from utils import CCog
 
 import aiohttp
 import discord
@@ -15,7 +16,7 @@ from discord.ext.commands import Bot, Context
 class SearchError(Exception):
     pass
 
-class NSFW(commands.Cog, name='nsfw'):
+class NSFW(CCog, name='nsfw'):
     """A cog for sending nsfw images from danbooru."""
     url: str = "https://danbooru.donmai.us/posts.json"
     
@@ -25,7 +26,7 @@ class NSFW(commands.Cog, name='nsfw'):
             headers={'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"}
         )
         self.danbooru_auth = aiohttp.BasicAuth(
-            config['danbooru']['login'], config['danbooru']['api_key']
+            self.config['login'], self.config['api_key']
         )
     
     @commands.Cog.listener()
