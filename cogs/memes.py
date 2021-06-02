@@ -7,7 +7,6 @@ from typing import List, Optional
 
 import aiohttp
 import discord
-from config import config, logger
 from discord import File, TextChannel
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
@@ -193,7 +192,7 @@ class Memes(CCog, name="memes"):
 
             channel = random.choice(channels)
 
-        logger.debug(f'Reposting meme from {channel} to {ctx.channel}')
+        self.logger.debug(f'Reposting meme from {channel} to {ctx.channel}')
         memes = []
         async for msg in channel.history():
             memes += [i.url for i in msg.attachments]
@@ -225,5 +224,6 @@ def setup(bot):
 
 
 if __name__ == '__main__':
+    from utils import config
     drive = PyDrive(config['memes']['pydrive_settings'], config['memes']['folder'])
     drive.upload_directory(config['memes']['localdir'])

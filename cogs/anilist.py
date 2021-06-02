@@ -1,12 +1,11 @@
-from datetime import datetime, timedelta, timezone
-from utils import CCog
+from datetime import datetime, timedelta
 
 import aiohttp
 import discord
-from config import config, logger
 from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Bot, Context
+from discord.ext.commands import Bot
+from utils import CCog
 
 
 class Anilist(CCog, name="anilist"):
@@ -107,7 +106,7 @@ query ($id: Int, $last: Int) {
             )
             await self.channel.send(embed=embed)
 
-            logger.info(f"Updated anilist activity {activity['id']}")
+            self.logger.info(f"Updated anilist activity {activity['id']}")
 
     async def fetch_anilist(self, query: str, variables: dict, **kwargs):
         """Fetches data from anilist api."""

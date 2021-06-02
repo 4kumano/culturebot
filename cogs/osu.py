@@ -1,14 +1,11 @@
 from datetime import datetime, timedelta
-from utils import CCog
 
 import aiohttp
 import discord
-from config import config, logger
 from discord import TextChannel
 from discord.ext import commands, tasks
-from pprint import pprint
 from discord.ext.commands import Bot, Context
-import bisect
+from utils import CCog
 
 
 class Osu(CCog, name="osu"):
@@ -99,7 +96,7 @@ class Osu(CCog, name="osu"):
             
             await self.channel.send(embed=embed)
             
-            logger.info(f"Updated osu score {score['best_id']}")
+            self.logger.info(f"Updated osu score {score['best_id']}")
         
             
                 

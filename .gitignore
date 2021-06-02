@@ -4,6 +4,7 @@ config.cfg
 # misc
 logs/
 assets/*
+_base_cog.py
 # rpg
 *simplerpg*
 # credentials

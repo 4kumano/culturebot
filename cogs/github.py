@@ -1,12 +1,11 @@
 from datetime import datetime
-from utils import CCog
 
 import aiohttp
 import discord
-from config import config, logger
 from discord import TextChannel
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
+from utils import CCog
 
 
 class Github(CCog, name="github"):
@@ -76,7 +75,7 @@ class Github(CCog, name="github"):
 
             await self.channel.send(embed=embed)
             
-            logger.info(f"Updated github commit {commit['sha']}")
+            self.logger.info(f"Updated github commit {commit['sha']}")
 
 
 def setup(bot):

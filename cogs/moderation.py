@@ -2,8 +2,7 @@ from datetime import datetime, timedelta
 from typing import Union
 
 import discord
-from config import config, logger
-from discord import Guild, Member, Role, TextChannel, Message
+from discord import Guild, Member, Message, Role, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
@@ -91,7 +90,7 @@ class Moderation(commands.Cog, name="moderation"):
         if role not in member.roles:
             await ctx.send(f"{member} is not currently muted.")
             return
-        await member.remove_roles()
+        await member.remove_roles(role)
         await ctx.send(f"Unmuted {member}")
 
     @commands.command('lock')

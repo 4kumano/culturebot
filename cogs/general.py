@@ -1,10 +1,10 @@
 import time
 
 import discord
-from config import config
 from discord import Forbidden
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
+from utils import config
 
 start_time = time.time()
 

@@ -1,17 +1,14 @@
 import io
 import random
-from typing import Iterable, List, Optional, Sequence, Tuple, Union
 import textwrap
-from utils import CCog
+from typing import List, Optional, Sequence
 
 import aiohttp
 import discord
-from discord.abc import Messageable
-from discord.channel import TextChannel
-from functools import cached_property
-from config import config, logger
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
+from utils import CCog
+
 
 class SearchError(Exception):
     pass

@@ -1,15 +1,11 @@
 import asyncio
-from datetime import time
 import random
 from utils import CCog
 
 import discord
-from discord.channel import TextChannel
-from config import config, logger
-from discord import Member, User
+from discord import Member, TextChannel
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
-from copy import deepcopy
 
 
 class Fun(CCog, name="fun"):
@@ -41,7 +37,7 @@ class Fun(CCog, name="fun"):
         vc.play(soundeffect)
         await asyncio.sleep(1)
         await vc.disconnect()
-        logger.debug(f'{ctx.author} played a soundeffect to {target}.')
+        self.logger.debug(f'{ctx.author} played a soundeffect to {target}.')
         
     @commands.command('roll', aliases=['dice', 'diceroll'])
     async def roll(self, ctx: Context, dice: str = '1d6'):
@@ -70,7 +66,8 @@ class Fun(CCog, name="fun"):
         await ctx.send(f"Landed on {['Heads', 'Tails'][toss]}" + (f": {[heads,tails][toss]}" if heads else ''))
     
     @commands.command('mention', aliases=['annoy'])
-    @commands.has_permissions(mention_everyone=True)
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(mention_everyone=True)
     @commands.guild_only()
     async def mention(self, ctx: Context, type: str = 'here'):
         """Silently mentions all users in a server and deletes the message"""
@@ -81,8 +78,8 @@ class Fun(CCog, name="fun"):
         await msg.delete()
     
     @commands.command('channelswap', aliases=['swapchannels'])
+    @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(manage_channels=True)
-    @commands.has_guild_permissions(manage_channels=True)
     @commands.cooldown(2, 300, commands.BucketType.guild)
     async def channel_swap(self, ctx: Context, a: TextChannel, b: TextChannel):
         """Swaps two channels around, troll some members"""
@@ -104,7 +101,10 @@ class Fun(CCog, name="fun"):
         """
         await ctx.message.delete()
         for channel in member.guild.channels:
+            if channel.permissions_synced:
+                channel = channel.category
             await channel.set_permissions(member, view_channel=False)
+        
         msg = await ctx.send(f'Banned {member}')
         await msg.add_reaction('↩️')
         try:
@@ -118,6 +118,8 @@ class Fun(CCog, name="fun"):
         
         await msg.clear_reactions()
         for channel in member.guild.channels:
+            if channel.permissions_synced:
+                channel = channel.category
             await channel.set_permissions(member, overwrite=None)
         
 

@@ -5,33 +5,45 @@ import asyncio
 import configparser
 import re
 import shlex
+import traceback
+from datetime import datetime
 from functools import partial
+from logging import Logger
 from typing import Optional, TypeVar, Union
 
 import discord
 from discord import Member, Message, NotFound, User
+from discord.embeds import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
-from config import config
+from config import config, logger
 
 T = TypeVar('T')
 
 class CCog(commands.Cog):
     """A command with a config"""
+    bot: Bot
     config: configparser.SectionProxy
+    logger: Logger
     def __new__(cls, *args, **kwargs):
         self = super().__new__(cls, *args, **kwargs)
+        self.__cog_name__ = self.__cog_name__.lower()
         if self.__cog_name__ in config:
             self.config = config[self.__cog_name__]
+        self.logger = logger
         return self
+
+def wrap(*string: str, lang: str = '') -> str:
+    """Wraps a string in codeblocks."""
+    return f'```{lang}\n' + ''.join(string) + '\n```'
 
 def multiline_join(strings: list[str], sep: str = '', prefix: str = '', suffix: str = '') -> str:
     """Like str.join but multiline."""
     parts = zip(*(str(i).splitlines() for i in strings))
     return '\n'.join(prefix+sep.join(i)+suffix for i in parts)
 
-def chunkify(string: str, max_size: int = 1980, newlines: bool = False, wrapped: bool = False) -> list[str]:
+def chunkify(string: str, max_size: int = 1980, newlines: bool = True, wrapped: bool = False) -> list[str]:
     """Takes in a string and splits it into chunks that fit into a single discord message
     
     You may change the max_size to make this function work for embeds.
@@ -58,6 +70,49 @@ def chunkify(string: str, max_size: int = 1980, newlines: bool = False, wrapped:
         return [wrap(i) for i in chunks]
     else:
         return chunks
+
+async def report_bug(ctx: Context, error: Exception):
+    """Reports a bug to a channel"""
+    channel_id = config['bot'].getint('bugreport')
+    channel = ctx.bot.get_channel(channel_id) or await ctx.bot.fetch_channel(channel_id)
+    assert isinstance(channel, discord.TextChannel)
+
+    tb = traceback.format_exception(type(error), error, error.__traceback__)
+    chunks = chunkify(''.join(tb), 1000, newlines=True, wrapped=True)
+    
+    embed = discord.Embed(
+        color=discord.Colour.red(),
+        title=type(error).__name__,
+        url=ctx.message.jump_url,
+        timestamp=datetime.now()
+    ).set_author(
+        name=str(ctx.author),
+        icon_url=ctx.author.avatar_url
+    )
+    for chunk in chunks:
+        embed.add_field(
+            name='\u200b​',
+            value=chunk,
+            inline=False
+        )
+    
+    await channel.send(embed=embed)
+
+async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout: int = 15) -> bool:
+    """Confirms a message"""
+    yes, no = '✅', '❌'
+    await message.add_reaction(yes)
+    await message.add_reaction(no)
+    try:
+        reaction, _ = await bot.wait_for(
+            'reaction_add',
+            check=lambda r, u: str(r) in (yes, no) and u == user,
+            timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        return False
+    
+    return str(reaction) == yes
 
 async def discord_choice(
     bot: Bot, message: Message, user: Union[User, Member],
@@ -106,6 +161,15 @@ async def discord_choice(
 
     return reactions[str(reaction)]
 
+def error_embed(description: str = None) -> Embed:
+    embed = discord.Embed(
+        colour=discord.Colour.red(),
+        title="An error was encountered",
+        description=description,
+        timestamp=datetime.now()
+    )
+    return embed
+
 def bot_channel_only(regex: str = r'bot|spam', category: bool = True, dms: bool = True):
     def predicate(ctx: Context):
         channel = ctx.channel
@@ -121,26 +185,6 @@ def bot_channel_only(regex: str = r'bot|spam', category: bool = True, dms: bool 
 
     return commands.check(predicate)
 
-async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout: int = 15) -> bool:
-    """Confirms a message"""
-    yes, no = '✅', '❌'
-    await message.add_reaction(yes)
-    await message.add_reaction(no)
-    try:
-        reaction, _ = await bot.wait_for(
-            'reaction_add',
-            check=lambda r, u: str(r) in (yes, no) and u == user,
-            timeout=timeout
-        )
-    except asyncio.TimeoutError:
-        return False
-    
-    return str(reaction) == yes
-    
-
-def wrap(*string: str, lang: str = '') -> str:
-    """Wraps a string in codeblocks."""
-    return f'```{lang}\n' + ''.join(string) + '\n```'
 
 class DiscordArgparse(argparse.Namespace):
     """An argument parser for discord.py build in argparse

@@ -1,19 +1,20 @@
-import argparse
+import inspect
 import io
 import textwrap
-from threading import local
 import traceback
 import re
 from contextlib import redirect_stdout
-from utils import chunkify
 
+from utils import chunkify, wrap
+
+import discord
 from discord.ext import commands
-from discord.ext.commands import Context
+from discord.ext.commands import Context, Bot
 
 
 class Debug(commands.Cog, name='debug'):
     """A Cog for command debugging. Owner only."""
-    def __init__(self, bot):
+    def __init__(self, bot: Bot):
         self.bot = bot
         self.last_return = None
 
@@ -70,8 +71,7 @@ class Debug(commands.Cog, name='debug'):
             'message': ctx.message,
             '_': self.last_return,
             
-            'pprint': __import__('pprint').pprint,
-            'json': __import__('json')
+            **globals()
         }
         
         for code in re.findall(self._code_re, string):
@@ -79,9 +79,15 @@ class Debug(commands.Cog, name='debug'):
             for chunk in chunkify(output, newlines=True, wrapped=True):
                 await ctx.send(chunk)
     
-    @commands.command('error', hidden=True)
-    async def raise_error(self, ctx: Context, *args: str):
-        raise Exception(args)
+    @commands.command(hidden=True)
+    async def getsource(self, ctx: Context, command: str):
+        cmd = self.bot.all_commands.get(command)
+        if cmd is None:
+            await ctx.send(f"Could not find `{command}`")
+            return
+
+        for chunk in chunkify(textwrap.dedent(inspect.getsource(cmd.callback))):
+            await ctx.send(wrap(chunk, lang='py'))
     
 def setup(bot):
     bot.add_cog(Debug(bot))

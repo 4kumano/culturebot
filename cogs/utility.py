@@ -2,10 +2,10 @@ from typing import Union
 
 import aiohttp
 import discord
-from config import config, logger
 from discord import Emoji, PartialEmoji, Role
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
+
 
 class Utility(commands.Cog, name="utility"):
     """Manager for Servers, Members, Roles and emojis"""

@@ -1,16 +1,11 @@
-from datetime import datetime
 import aiohttp
 import discord
-from discord.abc import User
-from spotipy.cache_handler import CacheFileHandler
-from config import config, logger
-from discord import Emoji, PartialEmoji, Role
+import spotipy
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
+from spotipy import CacheFileHandler, SpotifyOAuth
 from utils import CCog
 
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials, SpotifyOAuth
 
 class Spotify(CCog, name="spotify"):
     """Shows what the owner is listening to on spotify"""
@@ -20,11 +15,10 @@ class Spotify(CCog, name="spotify"):
         self.session = aiohttp.ClientSession()
         auth = SpotifyOAuth(**self.config, cache_handler=CacheFileHandler('credentials/spotipy_cache.json'))
         self.spotify = spotipy.Spotify(oauth_manager=auth)
+        self.keep_token_alive.start()
     
     @commands.Cog.listener()
     async def on_ready(self):
-        # refresh token
-        self.spotify.auth_manager.get_access_token()
         self.user = self.spotify.me()
     
     @commands.command('spotify')
@@ -50,6 +44,14 @@ class Spotify(CCog, name="spotify"):
         )
         
         await ctx.send(embed=embed)
+    
+    @tasks.loop(minutes=59, seconds=15)
+    async def keep_token_alive(self):
+        """Keep refreshing the access token every <1h
+        
+        This is due to a bug I don't understand
+        """
+        self.spotify.auth_manager.get_access_token()
 
 def setup(bot):
     bot.add_cog(Spotify(bot))
