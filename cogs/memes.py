@@ -13,7 +13,7 @@ from discord.ext.commands import Bot, Context
 from pydrive.auth import GoogleAuth, LoadAuth
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
-from utils import CCog
+from utils import CCog, asyncify
 
 
 class PyDrive:
@@ -124,6 +124,15 @@ class PyDrive:
 
         print(f'Uploaded {len(files)} files')
 
+@asyncify
+@LoadAuth
+def _download_file(file: GoogleDriveFile, spoiler: bool = False) -> Optional[File]:
+    """Downloads a pydrive file object and returns a discord file object"""
+    try:
+        content = io.BytesIO(file._DownloadFromUrl(file['downloadUrl']))
+    except ApiRequestError:
+        return None
+    return File(content, file['title'], spoiler=spoiler)
 
 class Memes(CCog, name="memes"):
     """A utility cog for reposting memes."""
@@ -132,7 +141,6 @@ class Memes(CCog, name="memes"):
     def __init__(self, bot: Bot):
         self.bot = bot
         self.session = aiohttp.ClientSession()
-        self.executor = ThreadPoolExecutor()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -141,7 +149,6 @@ class Memes(CCog, name="memes"):
 
     def cog_unload(self):
         self.update_memes.cancel()
-        self.executor.shutdown(cancel_futures=True)
         if not self.session.closed:
             self.bot.loop.create_task(self.session.close())
 
@@ -151,15 +158,6 @@ class Memes(CCog, name="memes"):
         self._memes = [i for i in self.drive.listdir() 
                        if i['downloadUrl'] and int(i['fileSize']) < 0x100000]
         random.shuffle(self._memes)
-    
-    async def _download_file(self, file: GoogleDriveFile) -> Optional[File]:
-        """Gets a single discord file objects from drive file objects"""
-        func = LoadAuth(lambda file: io.BytesIO(file._DownloadFromUrl(file['downloadUrl'])))
-        try: 
-            content = await asyncio.wrap_future(self.executor.submit(func, file))
-        except ApiRequestError: 
-            return None
-        return File(content, file['title'])
 
     @commands.command('meme', aliases=['randommeme'])
     @commands.cooldown(2, 1, commands.BucketType.channel)
@@ -172,7 +170,9 @@ class Memes(CCog, name="memes"):
         If an amount is set then the bot sends that many memes, max is 10.
         """
         await ctx.trigger_typing()
-        file = await self._download_file(random.choice(self._memes))
+        file = await _download_file(random.choice(self._memes))
+        if file is None:
+            raise commands.CommandError("There are too many memes being requested right now, please wait a second")
         await ctx.send(file=file)
 
     @commands.command('repost', aliases=['memerepost', 'repostmeme'])

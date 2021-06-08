@@ -4,7 +4,7 @@ import spotipy
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 from spotipy import CacheFileHandler, SpotifyOAuth
-from utils import CCog
+from utils import CCog, asyncify
 
 
 class Spotify(CCog, name="spotify"):
@@ -24,7 +24,7 @@ class Spotify(CCog, name="spotify"):
     @commands.command('spotify')
     async def playing(self, ctx: Context):
         """Shows what the owner is currently listening to"""
-        data = self.spotify.currently_playing()
+        data = await asyncify(self.spotify.currently_playing)()
         track = data['item']
         embed = discord.Embed(
             colour=0x1DB954,
@@ -46,7 +46,8 @@ class Spotify(CCog, name="spotify"):
         await ctx.send(embed=embed)
     
     @tasks.loop(minutes=59, seconds=15)
-    async def keep_token_alive(self):
+    @asyncify
+    def keep_token_alive(self):
         """Keep refreshing the access token every <1h
         
         This is due to a bug I don't understand

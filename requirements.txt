@@ -1,0 +1,7 @@
+discord.py
+aiohttp
+spotipy
+mcstatus
+humanize
+pydrive
+discord-pretty-help

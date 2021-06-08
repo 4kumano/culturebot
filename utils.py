@@ -6,10 +6,11 @@ import configparser
 import re
 import shlex
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from functools import partial
 from logging import Logger
-from typing import Optional, TypeVar, Union
+from typing import Any, Callable, Coroutine, Optional, TypeVar, Union
 
 import discord
 from discord import Member, Message, NotFound, User
@@ -169,6 +170,15 @@ def error_embed(description: str = None) -> Embed:
         timestamp=datetime.now()
     )
     return embed
+
+async_executor = ThreadPoolExecutor()
+def asyncify(func: Callable[..., T]) -> Callable[..., Coroutine[Any, Any, T]]:
+    """Turn a normal function into a coroutine. 
+    We don't use an awaitable because of type restrictions in dpy"""
+    loop = asyncio.get_event_loop()
+    async def wrapper(*args, **kwargs):
+        return await loop.run_in_executor(async_executor, lambda: func(*args, **kwargs))
+    return wrapper
 
 def bot_channel_only(regex: str = r'bot|spam', category: bool = True, dms: bool = True):
     def predicate(ctx: Context):

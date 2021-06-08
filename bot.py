@@ -16,20 +16,12 @@ from utils import chunkify, confirm, report_bug
 #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 prefixes = (config['bot']['prefix'], config['bot']['silent_prefix'])
-class PrettyHelpFix(PrettyHelp):
-    """A fix for a cog bug in PrettyHelp"""
-    async def send_pages(self):
-        try:
-            await super().send_pages()
-        except IndexError:
-            x: discord.TextChannel = self.get_destination()
-            x.typing()
 
 bot = commands.Bot(
     commands.when_mentioned_or(*sorted(prefixes, key=len, reverse=True)),
     case_insensitive=True,
     strip_after_prefix=True,
-    help_command=PrettyHelpFix(
+    help_command=PrettyHelp(
         color=0x42F56C,
         ending_note="Prefix: >>",
         show_index=False
@@ -57,7 +49,7 @@ async def on_ready():
 async def on_message(message: Message):
     if message.author.bot:
         return
-    if message.guild.id == 842788736008978504 and message.mentions:
+    if message.guild and message.guild.id == 842788736008978504 and message.mentions:
         if any(i in message.content for i in ('thanks', 'thank you')):
             await message.add_reaction('👍')
             await message.add_reaction('❌')
