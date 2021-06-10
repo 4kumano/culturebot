@@ -76,6 +76,7 @@ class Fun(CCog, name="fun"):
             await ctx.message.delete()
         msg = await ctx.send('@'+type)
         await msg.delete()
+        self.logger.debug(f'{ctx.author} mentioned {type}.')
     
     @commands.command('channelswap', aliases=['swapchannels'])
     @commands.has_permissions(administrator=True)
@@ -89,23 +90,25 @@ class Fun(CCog, name="fun"):
         await a.edit(**old[1])
         await b.edit(**old[0])
         await ctx.send('Completed')
+        self.logger.debug(f'{ctx.author} swapped {a} and {b}.')
     
     @commands.command('fakeban')
     @commands.bot_has_permissions(manage_channels=True, manage_messages=True)
     @commands.has_guild_permissions(manage_channels=True)
     @commands.cooldown(1, 300, commands.BucketType.guild)
-    async def fake_ban(self, ctx: Context, member: Member):
+    async def fake_ban(self, ctx: Context, target: Member):
         """Fake bans a member by removing their access to the all channels
         
         Beware: this will cause all permission overwrites to be cleared for them.
         """
         await ctx.message.delete()
-        for channel in member.guild.channels:
+        for channel in target.guild.channels:
             if channel.permissions_synced:
                 channel = channel.category
-            await channel.set_permissions(member, view_channel=False)
+            await channel.set_permissions(target, view_channel=False)
         
-        msg = await ctx.send(f'Banned {member}')
+        msg = await ctx.send(f'Banned {target}')
+        self.logger.debug(f'{ctx.author} fakebanned {target}.')
         await msg.add_reaction('↩️')
         try:
             await self.bot.wait_for(
@@ -117,10 +120,10 @@ class Fun(CCog, name="fun"):
             pass
         
         await msg.clear_reactions()
-        for channel in member.guild.channels:
+        for channel in target.guild.channels:
             if channel.permissions_synced:
                 channel = channel.category
-            await channel.set_permissions(member, overwrite=None)
+            await channel.set_permissions(target, overwrite=None)
         
 
 

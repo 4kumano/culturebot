@@ -1,4 +1,3 @@
-import asyncio
 import io
 import os
 import random
@@ -10,7 +9,7 @@ import discord
 from discord import File, TextChannel
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
-from pydrive.auth import GoogleAuth, LoadAuth
+from pydrive.auth import GoogleAuth, LoadAuth, RefreshError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
 from utils import CCog, asyncify
@@ -220,7 +219,10 @@ class Memes(CCog, name="memes"):
 
 
 def setup(bot):
-    bot.add_cog(Memes(bot))
+    try:
+        bot.add_cog(Memes(bot))
+    except RefreshError as e:
+        Memes.logger.error(e)
 
 
 if __name__ == '__main__':

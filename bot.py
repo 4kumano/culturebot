@@ -4,7 +4,7 @@ import traceback
 
 import discord
 from discord import Message
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from pretty_help import PrettyHelp
 
@@ -43,7 +43,17 @@ for file in os.listdir('./cogs'):
 @bot.event
 async def on_ready():
     logger.info(f'Logged into {len(bot.guilds)} servers.')
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="hentai"))
+    update_hentai_presence.start()
+
+@tasks.loop(seconds=60, reconnect=True)
+async def update_hentai_presence():
+    hentai = await bot.cogs['nsfw'].hanime_random() # type: ignore
+    await bot.change_presence(
+        activity=discord.Activity(
+            type=discord.ActivityType.watching, 
+            name=f"hentai - {hentai[0]['name']}"
+        )
+    )
 
 @bot.event
 async def on_message(message: Message):

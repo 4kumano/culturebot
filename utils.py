@@ -26,13 +26,12 @@ class CCog(commands.Cog):
     """A command with a config"""
     bot: Bot
     config: configparser.SectionProxy
-    logger: Logger
+    logger: Logger = logger
     def __new__(cls, *args, **kwargs):
         self = super().__new__(cls, *args, **kwargs)
         self.__cog_name__ = self.__cog_name__.lower()
         if self.__cog_name__ in config:
             self.config = config[self.__cog_name__]
-        self.logger = logger
         return self
 
 def wrap(*string: str, lang: str = '') -> str:

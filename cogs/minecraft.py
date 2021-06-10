@@ -41,7 +41,7 @@ class Minecraft(CCog):
         except socket.gaierror:
             raise commands.UserInputError(f"The server adress \"{server.host}\" could not be resolved")
         except asyncio.TimeoutError:
-            raise commands.CommandError("The server took too long to respond.")
+            raise commands.CommandError(f"The server {server.host}:{server.port} took too long to respond.")
         except ConnectionError:
             return discord.Embed(
                 colour=discord.Colour.red(),
@@ -95,6 +95,7 @@ class Minecraft(CCog):
             embed = await self.get_status_embed(self.gvp_server, gvp=True)
         except Exception as e:
             self.logger.error(e)
+            await asyncio.sleep(300)
         else:
             await self.gvp_status.edit(embed=embed)
 

@@ -1,12 +1,16 @@
 import io
+import json
 import random
+import re
 import textwrap
 from typing import List, Optional, Sequence
 
 import aiohttp
 import discord
+from discord.colour import Colour
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
+from pretty_help import DefaultMenu
 from utils import CCog
 
 
@@ -145,6 +149,92 @@ class NSFW(CCog, name='nsfw'):
     async def lewdneko(self, ctx: Context):
         """Sends a random lewd neko from nekos.life"""
         await self.neko(ctx, 'lewd')
+    
+    async def hanime_search(self, query: str) -> list:
+        async with self.session.post(
+            "https://search.htv-services.com/",
+            headers={
+                "Content-Type": "application/json;charset=UTF-8"
+            },
+            json={
+                "blacklist": [],
+                "brands": [],
+                "order_by": "likes",
+                "ordering": "desc",
+                "page": 0,
+                "search_text": query,
+                "tags": [],
+                "tags_mode": "AND"
+            }
+        ) as r:
+            data = await r.json()
+            data = json.loads(data['hits']) # wtf hanime
+            return data
+    
+    async def hanime_random(self) -> list:
+        async with self.session.get(
+            "https://members.hanime.tv/rapi/v7/hentai_videos",
+            params = {
+                "source": "randomize",
+                "r": round(random.random() * (1 << 8))
+            }
+        ) as r:
+            data = await r.json()
+            return sorted(data['hentai_videos'], key=lambda i: i['views'])
+    
+    @commands.group(invoke_without_command=True)
+    @commands.is_nsfw()
+    async def hanime(self, ctx: Context, *, query: str = ''):
+        """Searches hanime for hentai"""
+        if query == '':
+            return await self.hanimerandom.invoke(ctx)
+        data = await self.hanime_search(query)
+        if len(data) == 0:
+            await ctx.send(f"No hentai found for query `{query}`")
+            return
+        embeds = [
+            discord.Embed(
+                colour=Colour.gold(),
+                title=hentai['name'],
+                description=re.sub(r'<.+?>', '', hentai['description'])
+            ).set_author(
+                name=f"Result for search {query}",
+                url="https://hanime.tv/videos/hentai/"+hentai['slug']
+            ).set_image(
+                url=hentai['cover_url']
+            ).add_field(
+                name="tags",
+                value=", ".join(hentai['tags'])
+            ).set_footer(
+                text=f"{hentai['views']} views | "
+                    f"{hentai['likes']} likes & {hentai['dislikes']} dislikes"
+            )
+            for hentai in data
+        ]
+        menu = DefaultMenu()
+        await menu.send_pages(ctx, ctx, embeds)
+    
+    @hanime.command('random')
+    @commands.is_nsfw()
+    async def hanimerandom(self, ctx: Context):
+        data = await self.hanime_random()
+        embeds = [
+            discord.Embed(
+                colour=Colour.gold(),
+                description=f"{hentai['views']} views\n"
+                            f"{hentai['likes']} likes & {hentai['dislikes']} dislikes"
+            ).set_author(
+                name=hentai['name'],
+                url="https://hanime.tv/videos/hentai/"+hentai['slug']
+            ).set_image(
+                url=hentai['cover_url']
+            ).set_footer(
+                text=f"page: {i}/{len(data)}"
+            )
+            for i,hentai in enumerate(data, 1)
+        ]
+        menu = DefaultMenu()
+        await menu.send_pages(ctx, ctx, embeds)
     
     async def _set_yiff_categories(self) -> None:
         """Sets upp yiff categories, should be called only once"""
