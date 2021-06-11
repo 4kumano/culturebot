@@ -3,6 +3,7 @@ import io
 import textwrap
 import traceback
 import re
+from pprint import pprint
 from contextlib import redirect_stdout
 
 from utils import chunkify, wrap

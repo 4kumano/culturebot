@@ -1,10 +1,12 @@
 from typing import Union
+from utils import humandate
 
 import aiohttp
 import discord
-from discord import Emoji, PartialEmoji, Role
+from discord import Emoji, PartialEmoji, Role, User, Member
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
+from discord.user import ClientUser
 
 
 class Utility(commands.Cog, name="utility"):
@@ -34,8 +36,11 @@ class Utility(commands.Cog, name="utility"):
 
     @commands.group('emojis', aliases=['emoji', 'emote', 'emotes'], invoke_without_command=True)
     @commands.guild_only()
-    async def emojis(self, ctx: Context):
+    async def emojis(self, ctx: Context, emoji: Union[Emoji, PartialEmoji] = None):
         """Shows and manages all emojis in a guild"""
+        if emoji:
+            return self.emoji_details.invoke(ctx)
+        
         guild = ctx.guild
         await ctx.send(f"emojis in {guild}: ({len(guild.emojis)}/{guild.emoji_limit})")
         classic = animated = ''
@@ -46,13 +51,13 @@ class Utility(commands.Cog, name="utility"):
     
     @emojis.command('add', aliases=['set', 'edit'])
     @commands.bot_has_permissions(manage_emojis=True)
-    async def set_emoji(self, ctx: Context, name: str, emoji: Union[Emoji, str, None] = None, *roles: Role):
+    async def set_emoji(self, ctx: Context, name: str, emoji: Union[PartialEmoji, str, None] = None, *roles: Role):
         """Adds or sets an emoji to another emoji"""
         if not 2 <= len(name) <= 32:
             await ctx.send('Name must be between 2 and 32 characters')
             return
-        discord.PartialEmoji
-        if isinstance(emoji, Emoji):
+        
+        if isinstance(emoji, PartialEmoji):
             image = await emoji.url.read()
         else:
             if emoji:
@@ -132,6 +137,46 @@ class Utility(commands.Cog, name="utility"):
         ).set_footer(
             text=str(emoji)
         )
+        await ctx.send(embed=embed)
+    
+    @commands.group('user', aliases=['member', 'userinfo'])
+    async def user(self, ctx: Context, user: Union[Member, User] = None):
+        """Shows info about a user"""
+        user = user or ctx.author
+        if isinstance(user, ClientUser):
+            user = ctx.guild.me
+        
+        if isinstance(user, User):
+            embed = discord.Embed(title='<missing>')
+        else:
+            embed = discord.Embed(
+                colour=user.colour if user.colour.value else discord.Colour.light_grey(),
+                description=user.mention
+            ).add_field(
+                name='Joined at',
+                value=humandate(user.joined_at)
+            ).add_field(
+                name='Account created at',
+                value=humandate(user.created_at)
+            ).add_field(
+                name=f'Roles: {len(user.roles) - 1}',
+                value=' '.join(role.mention for role in user.roles if role.position != 0) or user.roles[0].mention,
+                inline=False
+            ).add_field(
+                name='Permissions',
+                value=', '.join(name.replace('_', ' ').title() for name, enabled in user.guild_permissions if enabled),
+                inline=False
+            )
+        
+        embed.set_author(
+            name=user.name,
+            icon_url=user.avatar_url
+        ).set_thumbnail(
+            url=user.avatar_url
+        ).set_footer(
+            text=f"Id: {user.id}"
+        )
+        
         await ctx.send(embed=embed)
 
 def setup(bot):

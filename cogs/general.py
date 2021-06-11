@@ -57,12 +57,8 @@ class General(commands.Cog, name="general"):
         Sends you the invite link in DMs.
         """
         app = await self.bot.application_info()
-        try:
-            await ctx.author.send(f"Invite me by clicking here: https://discordapp.com/oauth2/authorize?&client_id={app.id}&scope=bot&permissions=8")
-        except Forbidden:
-            await ctx.send('Could not invite you, you have disabled direct messages.')
-        else:
-            await ctx.send("I sent you a private message!")
+        url = discord.utils.oauth_url(app.id, discord.Permissions(administrator=True), )
+        await ctx.send(f"Invite me by clicking here: {url}")
             
 
 def setup(bot):

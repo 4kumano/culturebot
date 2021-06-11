@@ -71,6 +71,11 @@ def chunkify(string: str, max_size: int = 1980, newlines: bool = True, wrapped: 
     else:
         return chunks
 
+def humandate(dt: Optional[datetime]) -> str:
+    if dt is None:
+        return 'unknown'
+    return dt.strftime("%a, %b %d, %Y %H:%M %p")
+
 async def report_bug(ctx: Context, error: Exception):
     """Reports a bug to a channel"""
     channel_id = config['bot'].getint('bugreport')
