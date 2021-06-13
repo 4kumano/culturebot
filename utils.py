@@ -5,9 +5,10 @@ import asyncio
 import configparser
 import re
 import shlex
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 from functools import partial
 from logging import Logger
 from typing import Any, Callable, Coroutine, Optional, TypeVar, Union
@@ -75,6 +76,16 @@ def humandate(dt: Optional[datetime]) -> str:
     if dt is None:
         return 'unknown'
     return dt.strftime("%a, %b %d, %Y %H:%M %p")
+
+def utc_as_timezone(dt: datetime, naive: bool = False) -> datetime:
+    """Converts a random utc datetime into a correct local timezone aware datetime"""
+    ts = dt.timestamp()
+    localtm = time.localtime(ts)
+    delta = timedelta(seconds=localtm.tm_gmtoff)
+    tz = timezone(delta, localtm.tm_zone)
+    
+    dt += delta
+    return dt if naive else dt.astimezone(tz)
 
 async def report_bug(ctx: Context, error: Exception):
     """Reports a bug to a channel"""
@@ -236,3 +247,8 @@ class DiscordArgparse(argparse.Namespace):
                 + parser.format_usage()
             )
         return args
+
+if __name__ == '__main__':
+    dt = datetime.now() - timedelta(hours=2)
+    print(dt)
+    print(utc_as_timezone(dt))

@@ -51,7 +51,7 @@ async def update_hentai_presence():
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching, 
-            name=f"hentai - {hentai[0]['name']}"
+            name=f"hentai - {hentai[0]['name']}",
         )
     )
 

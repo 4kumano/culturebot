@@ -1,15 +1,19 @@
+from datetime import datetime, timedelta, timezone
+from os import name
 from typing import Union
-from utils import humandate
 
 import aiohttp
 import discord
-from discord import Emoji, PartialEmoji, Role, User, Member
+from discord import Emoji, Member, PartialEmoji, Role, User
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 from discord.user import ClientUser
+from pretty_help import DefaultMenu
+from utils import CCog, humandate, utc_as_timezone
+import humanize
 
 
-class Utility(commands.Cog, name="utility"):
+class Utility(CCog, name="utility"):
     """Manager for Servers, Members, Roles and emojis"""
 
     def __init__(self, bot: Bot):
@@ -147,7 +151,16 @@ class Utility(commands.Cog, name="utility"):
             user = ctx.guild.me
         
         if isinstance(user, User):
-            embed = discord.Embed(title='<missing>')
+            embed = discord.Embed(
+                colour=discord.Colour.light_grey(),
+                description=user.mention
+            ).add_field(
+                name="Name",
+                value=str(user)
+            ).add_field(
+                name='Account created at',
+                value=humandate(user.created_at)
+            )
         else:
             embed = discord.Embed(
                 colour=user.colour if user.colour.value else discord.Colour.light_grey(),
@@ -174,10 +187,75 @@ class Utility(commands.Cog, name="utility"):
         ).set_thumbnail(
             url=user.avatar_url
         ).set_footer(
-            text=f"Id: {user.id}"
+            text=f"ID: {user.id}"
         )
         
         await ctx.send(embed=embed)
+    
+    @commands.command('activity', aliases=['activities'])
+    @commands.guild_only()
+    async def activity(self, ctx: Context, member: Member = None):
+        """Shows the activity of a member."""
+        member = member or ctx.author # type: ignore
+        if member.activity is None:
+            embed = discord.Embed(
+                colour=discord.Colour.red(),
+                title=f"{member.display_name} does not have any activity"
+            ).set_author(
+                name=member,
+                url=member.avatar_url
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        embeds = []
+        for activity in member.activities:
+            if isinstance(activity, discord.Spotify):
+                progress = datetime.now().astimezone() - utc_as_timezone(activity.start)
+                embed = discord.Embed(
+                    colour=activity.colour,
+                    title=activity.title,
+                    description=f"By: {activity.artist}\n"
+                                f"On: {activity.album}"
+                ).set_thumbnail(
+                    url=activity.album_cover_url
+                ).add_field(
+                    name="Progress",
+                    value=f"{progress.seconds // 60}:{progress.seconds % 60:02d} / "
+                          f"{activity.duration.seconds // 60}:{activity.duration.seconds % 60:02d}"
+                )
+            elif isinstance(activity, discord.Activity):
+                embed = discord.Embed(
+                    colour=discord.Colour.blurple(),
+                    title=activity.details,
+                    description=activity.state
+                ).set_author(
+                    name=f"{activity.type.name.title()} {activity.name}",
+                    icon_url=activity.small_image_url or discord.Embed.Empty,
+                    url=activity.url or discord.Embed.Empty
+                ).set_thumbnail(
+                    url=activity.large_image_url
+                )
+                if activity.start:
+                    elapsed = datetime.now().astimezone() - utc_as_timezone(activity.start)
+                    embed.add_field(
+                        name="Elapsed:",
+                        value=f"{elapsed.seconds // 3600}:{elapsed.seconds % 3600 // 60}:{elapsed.seconds % 60}"
+                    )
+            else:
+                self.logger.error(f"{activity=}")
+                continue
+            
+            embed.set_footer(
+                text=f'Activity of {member}',
+                icon_url=member.avatar_url
+            )
+            embeds.append(embed)
+        
+        menu = DefaultMenu()
+        await menu.send_pages(ctx, ctx, embeds)
+        
+        
 
 def setup(bot):
     bot.add_cog(Utility(bot))
