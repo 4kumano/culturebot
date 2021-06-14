@@ -152,7 +152,8 @@ class Memes(CCog, name="memes"):
             self.bot.loop.create_task(self.session.close())
 
     @tasks.loop(hours=6)
-    async def update_memes(self):
+    @asyncify
+    def update_memes(self):
         """Updates the meme files"""
         self._memes = [i for i in self.drive.listdir() 
                        if i['downloadUrl'] and int(i['fileSize']) < 0x100000]

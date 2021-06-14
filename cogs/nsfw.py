@@ -39,19 +39,29 @@ class NSFW(CCog, name='nsfw'):
             self.bot.loop.create_task(self.session.close())
 
     async def search_danbooru(self, tags: Sequence[str], limit: int = 200, rating: Optional[str] = None) -> List[dict]:
-        """Searches danbooru for posts."""
+        """Searches danbooru for posts.
+        
+        Works by using tags for both searching and then filtering.
+        This bypasses the need for a premium account.
+        """
+        # first we separate the main tags from the secondary filter tags
+        # the rating tag should be removed from filter tags since it's not really a tag
         main_tags, filter_tags = tags[:2], tags[2:]
         rating_tag = next((i for i in filter_tags if i.startswith('rating:')), None)
         if rating_tag is not None:
             rating = rating_tag.split(':')[1][0]
         
+        # then we join the tags into a query param and construct a url
+        # we don't use params because that encodes the needed separators
         url = self.url + '?tags='+'+'.join(main_tags)
         params = {'limit': limit}
+        # we use authentication so there aren't any ratelimits
         async with self.session.get(url, params=params, auth=self.danbooru_auth) as r:
             posts = await r.json()
             if r.status != 200:
                 raise commands.BadArgument(posts['message'])
         
+        # finally filter the posts by checking if all filter tags are present
         posts = [
             post for post in posts 
             if post['parent_id'] is None and post.get('file_url') and
@@ -81,39 +91,41 @@ class NSFW(CCog, name='nsfw'):
                 f"the combination of tags does not have any posts.")
             return
         
-        post = random.choice(posts)
+        embeds = [
+            discord.Embed(
+                description=f"result for search: `{' '.join(tags)}`", 
+                color=discord.Colour.red()
+            ).set_author(
+                name="danbooru",
+                url="https://danbooru.donmai.us/posts?tags="+'+'.join(tags),
+                icon_url="https://danbooru.donmai.us/images/danbooru-logo-500x500.png"
+            ).add_field(
+                name=f"{post['tag_count_general']} tags",
+                value=textwrap.shorten(post['tag_string_general'], 1024)
+            ).add_field(
+                name=f"rating: {post['rating']}",
+                value='\u200b'
+            ).set_image(
+                url=post['file_url']   
+            ).set_footer(
+                text=f"id: {post['id']} | character: {post['tag_string_character']} | artist: {post['tag_string_artist']}"
+            )
+            for post in posts
+        ]
         
-        embed = discord.Embed(
-            description=f"result for search: `{' '.join(tags)}`", 
-            color=discord.Colour.red()
-        ).set_author(
-            name="danbooru",
-            url="https://danbooru.donmai.us/posts?tags="+'+'.join(tags),
-            icon_url="https://danbooru.donmai.us/images/danbooru-logo-500x500.png"
-        ).add_field(
-            name=f"{post['tag_count_general']} tags",
-            value=textwrap.shorten(post['tag_string_general'], 1024)
-        ).add_field(
-            name=f"rating: {post['rating']}",
-            value='\u200b'
-        ).set_image(
-            url=post['file_url']   
-        ).set_footer(
-            text=f"id: {post['id']} | character: {post['tag_string_character']} | artist: {post['tag_string_artist']}"
-        )
-        
-        await ctx.send(embed=embed)
+        menu = DefaultMenu()
+        await menu.send_pages(ctx, ctx, embeds)
     
     @booru.command('raw')
-    async def booru_raw(self, ctx: Context, tags: str = '', amount: int = 1):
+    async def booru_raw(self, ctx: Context, amount: int = 1, *tags: str):
         """Like booru excepts just sends the image without any embed
         
         If there are multiple tags they must be enclosed in quotes.
         An optional amount may be given, which will send multiple images. Maximum is 10.
         """
-        posts = await self.search_danbooru(tags.split())
+        posts = await self.search_danbooru(tags)
         if len(posts) == 0:
-            await ctx.send(f"No posts were returned for `{tags}`")
+            await ctx.send(f"No posts were returned for `{' '.join(tags)}`")
             return
         amount = min(amount, 10, len(posts))
         

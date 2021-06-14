@@ -8,13 +8,16 @@ import shlex
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from copy import copy
 from datetime import date, datetime, timedelta, timezone
 from functools import partial
 from logging import Logger
-from typing import Any, Callable, Coroutine, Optional, TypeVar, Union
+from typing import (Any, Callable, Coroutine, Iterable, List, Mapping, Optional,
+                    TypeVar, Union)
 
 import discord
 from discord import Member, Message, NotFound, User
+from discord.abc import Messageable
 from discord.embeds import Embed
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
@@ -25,6 +28,7 @@ T = TypeVar('T')
 
 class CCog(commands.Cog):
     """A command with a config"""
+    __cog_name__: str # discord.py-stubs does not define this???
     bot: Bot
     config: configparser.SectionProxy
     logger: Logger = logger
@@ -44,8 +48,8 @@ def multiline_join(strings: list[str], sep: str = '', prefix: str = '', suffix: 
     parts = zip(*(str(i).splitlines() for i in strings))
     return '\n'.join(prefix+sep.join(i)+suffix for i in parts)
 
-def chunkify(string: str, max_size: int = 1980, newlines: bool = True, wrapped: bool = False) -> list[str]:
-    """Takes in a string and splits it into chunks that fit into a single discord message
+def chunkify(string: Union[str, Iterable[str]], max_size: int = 1980, newlines: bool = True, wrapped: bool = False) -> list[str]:
+    """Takes in a string or a list of lines and splits it into chunks that fit into a single discord message
     
     You may change the max_size to make this function work for embeds.
     There is a 20 character leniency given to max_size by default.
@@ -54,8 +58,10 @@ def chunkify(string: str, max_size: int = 1980, newlines: bool = True, wrapped: 
     If wrap is true the chunks will be individually wrapped in codeblocks.
     """
     if newlines:
+        string = string.split('\n') if isinstance(string, str) else string
+        
         chunks = ['']
-        for i in string.split('\n'): # keep whitespace
+        for i in string:
             i += '\n'
             if len(chunks[-1]) + len(i) < max_size:
                 chunks[-1] += i
@@ -65,12 +71,17 @@ def chunkify(string: str, max_size: int = 1980, newlines: bool = True, wrapped: 
             else:
                 chunks.append(i)
     else:
+        string = string if isinstance(string, str) else '\n'.join(string)
         chunks = [string[i:i+max_size] for i in range(0, len(string), max_size)]
     
     if wrapped:
-        return [wrap(i) for i in chunks]
-    else:
-        return chunks
+        chunks = [wrap(i) for i in chunks]
+   
+    return chunks
+
+async def send_chunks(destination: Messageable, string: str, wrapped: bool = False) -> list[Message]:
+    """Sends a long string to a channel"""
+    return [await destination.send(chunk) for chunk in chunkify(string, wrapped=wrapped)]
 
 def humandate(dt: Optional[datetime]) -> str:
     if dt is None:
@@ -132,7 +143,7 @@ async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout
 
 async def discord_choice(
     bot: Bot, message: Message, user: Union[User, Member],
-    choices: Union[dict[str, T], list[T]],
+    choices: Union[Mapping[str, T], list[T]],
     timeout: float = 60, delete_after_timeout: bool = True,
     cancel: Optional[str] = '❌'
 ) -> Optional[T]:
@@ -144,9 +155,10 @@ async def discord_choice(
 
     If cancel is set to None, the user will not be able to cancel.
     """
-    if isinstance(choices, dict):
-        reactions = choices.copy()
+    if isinstance(choices, Mapping):
+        reactions = choices
     else:
+        # possible enums should be accounted for
         reactions = {getattr(i, 'value', str(i)).strip(): i for i in choices}
 
     for i in reactions:
@@ -171,8 +183,7 @@ async def discord_choice(
             return None
 
     if str(reaction) == cancel:
-        if delete_after_timeout:
-            await message.delete()
+        await message.delete()
         return None
 
     return reactions[str(reaction)]
@@ -209,46 +220,3 @@ def bot_channel_only(regex: str = r'bot|spam', category: bool = True, dms: bool 
         raise commands.CheckFailure('This channel is not a bot channel.')
 
     return commands.check(predicate)
-
-
-class DiscordArgparse(argparse.Namespace):
-    """An argument parser for discord.py build in argparse
-    
-    As oposed to using normal argparse as an annotation,
-    using DiscordArgparse ensures the typing is correct by inheriting from Namespace.
-    
-    Usage:
-    ```
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--foo', type=int)
-    parser.add_argument('-x', action='store_true')
-    
-    @bot.command()
-    async def command(ctx, args: DiscordArgparse[parser]):
-        print(args.foo, args.x)
-    ```
-    
-    When an error is encountered during parsing a BadArgument Exception is raised with a custom message.
-    """
-    def __class_getitem__(cls, parser: argparse.ArgumentParser):
-        """Initialize the converter with an ArgumentParser"""
-        parser.exit_on_error = False # type: ignore
-        return partial(cls.convert, parser)
-    
-    @staticmethod
-    def convert(parser: argparse.ArgumentParser, argument: str) -> argparse.Namespace:
-        try:
-            args, argv = parser.parse_known_args(shlex.split(argument))
-        except argparse.ArgumentError as e:
-            raise commands.BadArgument(f'Could not parse arguments: {e.message}')
-        if argv:
-            raise commands.TooManyArguments(
-                f'Recieved {len(argv)} extra arguments: {", ".join(argv)}\n' 
-                + parser.format_usage()
-            )
-        return args
-
-if __name__ == '__main__':
-    dt = datetime.now() - timedelta(hours=2)
-    print(dt)
-    print(utc_as_timezone(dt))

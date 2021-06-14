@@ -1,9 +1,11 @@
 import difflib
 import os
+import textwrap
 import traceback
 
 import discord
 from discord import Message
+from discord.enums import ActivityType
 from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from pretty_help import PrettyHelp
@@ -26,7 +28,9 @@ bot = commands.Bot(
         ending_note="Prefix: >>",
         show_index=False
     ),
-    intents=discord.Intents.all()
+    intents=discord.Intents.all(),
+    status=discord.Status.dnd,
+    activity=discord.CustomActivity("Reloading bot...", emoji='♻️')
 )
 
 for file in os.listdir('./cogs'):
@@ -75,7 +79,7 @@ async def on_command_error(ctx: Context, error: Exception):
         e = error.original
         if await bot.is_owner(ctx.author):
             tb = traceback.format_exception(type(error), error, error.__traceback__)
-            for chunk in chunkify(''.join(tb), newlines=True, wrapped=True):
+            for chunk in chunkify(tb, newlines=True, wrapped=True):
                 await ctx.send(chunk)
             return
         
@@ -103,9 +107,21 @@ async def on_command_error(ctx: Context, error: Exception):
     else:
         raise error
 
+@bot.before_invoke
+async def before_invoke(ctx: Context):
+    cmd_path = ctx.command.full_parent_name.replace(' ', '.')
+    command = (cmd_path + '.' if cmd_path else '') + ctx.command.name
+    
+    content = textwrap.shorten(ctx.message.content, 80, placeholder='...')
+    logger.debug(f"g:{ctx.guild.id}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
+
 @bot.after_invoke
 async def after_invoke(ctx: Context):
     if ctx.prefix == config['bot']['silent_prefix']:
-        await ctx.message.delete()
+        try:
+            await ctx.message.delete()
+        except discord.Forbidden:
+            pass
+
 
 bot.run(config['bot']['token'])

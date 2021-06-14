@@ -19,7 +19,11 @@ class Spotify(CCog, name="spotify"):
     
     @commands.Cog.listener()
     async def on_ready(self):
-        self.user = self.spotify.me()
+        try:
+            self.user = await asyncify(self.spotify.me)()
+        except Exception as e:
+            self.logger.error(e)
+            self.bot.remove_cog(self.__cog_name__)
     
     @commands.command('spotify')
     async def playing(self, ctx: Context):
