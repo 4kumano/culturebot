@@ -17,10 +17,9 @@ class Spotify(CCog, name="spotify"):
         self.spotify = spotipy.Spotify(oauth_manager=auth)
         self.keep_token_alive.start()
     
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def init(self):
         try:
-            self.user = await asyncify(self.spotify.me)()
+            self.user = await self.bot.loop.run_in_executor(None, self.spotify.me)
         except Exception as e:
             self.logger.error(e)
             self.bot.remove_cog(self.__cog_name__)

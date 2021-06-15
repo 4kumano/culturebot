@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import argparse
 import asyncio
 import configparser
+import inspect
 import re
-import shlex
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from copy import copy
-from datetime import date, datetime, timedelta, timezone
-from functools import partial
+from datetime import datetime, timedelta, timezone
 from logging import Logger
-from typing import (Any, Callable, Coroutine, Iterable, List, Mapping, Optional,
+from typing import (Any, Callable, Coroutine, Iterable, Mapping, Optional,
                     TypeVar, Union)
 
 import discord
@@ -32,11 +29,20 @@ class CCog(commands.Cog):
     bot: Bot
     config: configparser.SectionProxy
     logger: Logger = logger
+    
     def __new__(cls, *args, **kwargs):
-        self = super().__new__(cls, *args, **kwargs)
+        cls.bot = args[0]
+        
+        self: CCog = super().__new__(cls, *args, **kwargs)
+        
         self.__cog_name__ = self.__cog_name__.lower()
         if self.__cog_name__ in config:
             self.config = config[self.__cog_name__]
+        
+        init = getattr(self, 'init', None)
+        if init and inspect.iscoroutinefunction(init):
+            self.bot.loop.create_task(init())
+        
         return self
 
 def wrap(*string: str, lang: str = '') -> str:
@@ -88,15 +94,19 @@ def humandate(dt: Optional[datetime]) -> str:
         return 'unknown'
     return dt.strftime("%a, %b %d, %Y %H:%M %p")
 
-def utc_as_timezone(dt: datetime, naive: bool = False) -> datetime:
+def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) -> datetime:
     """Converts a random utc datetime into a correct local timezone aware datetime"""
     ts = dt.timestamp()
     localtm = time.localtime(ts)
     delta = timedelta(seconds=localtm.tm_gmtoff)
+    if reverse:
+        delta = -delta
+    
     tz = timezone(delta, localtm.tm_zone)
     
     dt += delta
     return dt if naive else dt.astimezone(tz)
+
 
 async def report_bug(ctx: Context, error: Exception):
     """Reports a bug to a channel"""

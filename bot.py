@@ -1,11 +1,13 @@
 import difflib
 import os
+import sys
 import textwrap
+import time
 import traceback
 
 import discord
 from discord import Message
-from discord.enums import ActivityType
+import importlib
 from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from pretty_help import PrettyHelp
@@ -13,9 +15,7 @@ from pretty_help import PrettyHelp
 from config import config, logger
 from utils import chunkify, confirm, report_bug
 
-# import platform
-# if platform.system() == 'Windows':
-#     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == 'DEBUG'
 
 prefixes = (config['bot']['prefix'], config['bot']['silent_prefix'])
 
@@ -48,6 +48,8 @@ for file in os.listdir('./cogs'):
 async def on_ready():
     logger.info(f'Logged into {len(bot.guilds)} servers.')
     update_hentai_presence.start()
+    if DEBUG:
+        check_for_update.start()
 
 @tasks.loop(seconds=60, reconnect=True)
 async def update_hentai_presence():
@@ -58,6 +60,18 @@ async def update_hentai_presence():
             name=f"hentai - {hentai[0]['name']}",
         )
     )
+
+@tasks.loop(seconds=1)
+async def check_for_update():
+    """Debug function that checks for changes in python files"""
+    extensions = [
+        name
+        for name, module in bot.extensions.items()
+        if time.time() - os.path.getmtime(module.__file__) < 1
+    ]
+    for name in extensions:
+        bot.reload_extension(name)
+        print(f"Reloaded {name.split('.')[-1]}")
 
 @bot.event
 async def on_message(message: Message):
@@ -101,6 +115,11 @@ async def on_command_error(ctx: Context, error: Exception):
         else:
             await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is.")
     
+    elif isinstance(error, commands.UserInputError):
+        bot.help_command.context = ctx
+        signature = bot.help_command.get_command_signature(ctx.command)
+        await ctx.send(error.args[0] + f'\nUsage: `{signature}`' )
+    
     elif isinstance(error, commands.CommandError):
         await ctx.send(error.args[0])
     
@@ -122,6 +141,5 @@ async def after_invoke(ctx: Context):
             await ctx.message.delete()
         except discord.Forbidden:
             pass
-
 
 bot.run(config['bot']['token'])

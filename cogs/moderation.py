@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Union
 
@@ -98,8 +99,20 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.bot_has_permissions(manage_channels=True)
     async def lock(self, ctx: Context, channel: TextChannel = None):
         channel = channel or ctx.channel # type: ignore
-        await ctx.send(f'Locked {channel.mention} :lock:')
+        msg = await ctx.send(f':lock: Locked {channel.mention}')
         await channel.set_permissions(ctx.guild.roles[0], send_messages=False)
+
+        await msg.add_reaction('↩️')
+        try:
+            await self.bot.wait_for(
+                'raw_reaction_add', 
+                check=lambda event: str(event.emoji) == '↩️' and event.user_id == ctx.author.id,
+                timeout=12*60*60
+            )
+        except asyncio.TimeoutError:
+            await msg.remove_reaction('↩️', ctx.me)
+        else:
+            await self.unlock.invoke(ctx)
 
     @commands.command('unlock')
     @commands.has_permissions(manage_channels=True)
@@ -107,7 +120,7 @@ class Moderation(commands.Cog, name="moderation"):
     async def unlock(self, ctx: Context, channel: TextChannel = None):
         channel = channel or ctx.channel # type: ignore
         await channel.set_permissions(ctx.guild.roles[0], overwrite=None)
-        await ctx.send(f'Unlocked {channel.mention} :unlock:')
+        await ctx.send(f':unlock: Unlocked {channel.mention}')
 
 
 def setup(bot):

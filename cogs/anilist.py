@@ -5,7 +5,7 @@ import discord
 from discord import TextChannel
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot
-from utils import CCog
+from utils import CCog, utc_as_timezone
 
 
 class Anilist(CCog, name="anilist"):
@@ -45,16 +45,14 @@ query ($id: Int, $last: Int) {
   }
 }
     """
-    timezone_offset = timedelta(hours=2)
     channel: TextChannel
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.userid = self.config.getint('userid')
         self.session = aiohttp.ClientSession()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def init(self):
+        await self.bot.wait_until_ready()
         self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
         self.fetch_activity.start()
 
@@ -65,21 +63,23 @@ query ($id: Int, $last: Int) {
 
     @tasks.loop(minutes=10)
     async def fetch_activity(self):
-        """Fetches new anilist activity.
+        """Fetches new anilist activity."""
+        await self.bot.wait_until_ready()
         
-        Doesn't give a fuck about timezones because I don't either.
-        """
         last = 0
         async for msg in self.channel.history():
             if not msg.embeds:
                 continue
             e = msg.embeds[0]
-            if msg.embeds and e.title == 'anilist status':
-                dt = e.timestamp + self.timezone_offset
+            if msg.embeds and e.title == 'anilist status' and e.timestamp:
+                dt = utc_as_timezone(e.timestamp)
                 last = int(dt.timestamp())
                 break
 
-        data = await self.fetch_anilist(self.query, {'id': self.userid, 'last': last})
+        data = await self.fetch_anilist(
+            self.query, 
+            {'id': self.config.getint('userid'), 'last': last}
+        )
 
         user = data['User']
         for activity in reversed(data['Page']['activities']):
@@ -93,7 +93,7 @@ query ($id: Int, $last: Int) {
                 title="anilist status",
                 description=description,
                 color=discord.Color.green(),
-                timestamp=datetime.fromtimestamp(activity['createdAt']) - self.timezone_offset
+                timestamp=datetime.fromtimestamp(activity['createdAt']).astimezone()
             ).set_author(
                 name=user['name'],
                 url=user['siteUrl'],

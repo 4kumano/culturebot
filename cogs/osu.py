@@ -25,8 +25,8 @@ class Osu(CCog, name="osu"):
         self.bot = bot
         self.session = aiohttp.ClientSession()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def init(self):
+        await self.bot.wait_until_ready()
         self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
         self.fetch_scores.start()
 
@@ -62,6 +62,8 @@ class Osu(CCog, name="osu"):
     @tasks.loop(minutes=10)
     async def fetch_scores(self):
         """Fetches new best scores."""
+        await self.bot.wait_until_ready()
+        
         last = datetime.min
         async for msg in self.channel.history():
             if not msg.embeds:
@@ -147,7 +149,7 @@ class Osu(CCog, name="osu"):
     @osu.group('beatmap', aliases=['map'])
     async def osu_beatmap(self, ctx: Context, beatmap: str):
         """Shows beatmap info"""
-                
+        await ctx.send('Beatmaps not supported yet, please yell at the owner')
 
 
 def setup(bot):

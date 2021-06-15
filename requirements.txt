@@ -5,3 +5,4 @@ mcstatus
 humanize
 pydrive
 discord-pretty-help
+genshinstats

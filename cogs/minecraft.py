@@ -55,9 +55,11 @@ class Minecraft(CCog):
             status.description = status.description['text']
         
         if gvp:
+            # don't fucking touch this, it's so shit
             for player in self.gvp_players.copy():
                 if player not in [p.name for p in status.players.sample]:
                     del self.gvp_players[player]
+            
             for player in status.players.sample:
                 if player.name not in self.gvp_players:
                     self.gvp_players[player.name] = datetime.now()

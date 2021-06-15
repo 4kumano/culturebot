@@ -27,6 +27,7 @@ class Utility(CCog, name="utility"):
     async def _limited_download(self, url: str, max_size: int, chunk_size: int = 0x1000) -> bytes:
         """Downloads a file with a maximum size, if exceeded raises error"""
         async with self.session.get(url) as r:
+            r.content_length
             content = b''
             while len(content) <= max_size:
                 chunk = await r.content.read(chunk_size)
@@ -58,10 +59,9 @@ class Utility(CCog, name="utility"):
     async def set_emoji(self, ctx: Context, name: str, emoji: Union[PartialEmoji, str, None] = None, *roles: Role):
         """Adds or sets an emoji to another emoji"""
         if not 2 <= len(name) <= 32:
-            await ctx.send('Name must be between 2 and 32 characters')
-            return
+            raise commands.UserInputError('Name must be between 2 and 32 characters')
         
-        if isinstance(emoji, PartialEmoji):
+        if isinstance(emoji, PartialEmoji): # discord emoji
             image = await emoji.url.read()
         else:
             if emoji:
@@ -69,16 +69,16 @@ class Utility(CCog, name="utility"):
             elif ctx.message.attachments:
                 url = ctx.message.attachments[0].url
             else:
-                await ctx.send('No link/image was provided to set the emoji with')
-                return
+                raise commands.UserInputError('No link/image was provided to set the emoji with')
             
             try:
-                image = await self._limited_download(url, 0x40000)
+                async with self.session.get(url) as r:
+                    if r.content_length > 0x40000:
+                        await ctx.send('File size is bigger than 256kB')
+                        return
+                    image = await r.read()
             except aiohttp.ClientError:
                 await ctx.send(f"The {'image url' if emoji else 'attached image'} is not valid")
-                return
-            except ValueError:
-                await ctx.send('File size is bigger than 256kB')
                 return
         
         existing = discord.utils.get(ctx.guild.emojis, name=name)
@@ -225,16 +225,24 @@ class Utility(CCog, name="utility"):
                           f"{activity.duration.seconds // 60}:{activity.duration.seconds % 60:02d}"
                 )
             elif isinstance(activity, discord.Activity):
-                embed = discord.Embed(
-                    colour=discord.Colour.blurple(),
-                    title=activity.details,
-                    description=activity.state
-                ).set_author(
-                    name=f"{activity.type.name.title()} {activity.name}",
-                    icon_url=activity.small_image_url or discord.Embed.Empty,
-                    url=activity.url or discord.Embed.Empty
-                ).set_thumbnail(
-                    url=activity.large_image_url
+                if activity.details:
+                    embed = discord.Embed(
+                        colour=discord.Colour.blurple(),
+                        title=activity.details,
+                        description=activity.state
+                    ).set_author(
+                        name=f"{activity.type.name.title()} {activity.name}",
+                        icon_url=activity.small_image_url or discord.Embed.Empty,
+                        url=activity.url or discord.Embed.Empty
+                    )
+                else:
+                    embed = discord.Embed(
+                        colour=discord.Colour.blurple(),
+                        title=f"{activity.type.name.title()} {activity.name}",
+                    )
+                
+                embed.set_thumbnail(
+                    url=activity.large_image_url or discord.Embed.Empty
                 )
                 if activity.start:
                     elapsed = datetime.now().astimezone() - utc_as_timezone(activity.start)
@@ -242,6 +250,11 @@ class Utility(CCog, name="utility"):
                         name="Elapsed:",
                         value=f"{elapsed.seconds // 3600}:{elapsed.seconds % 3600 // 60}:{elapsed.seconds % 60}"
                     )
+            elif isinstance(activity, discord.CustomActivity):
+                embed = discord.Embed(
+                    colour=discord.Colour.gold(),
+                    description=f"**{activity.emoji}** {activity.name}"
+                )
             else:
                 self.logger.error(f"{activity=}")
                 continue

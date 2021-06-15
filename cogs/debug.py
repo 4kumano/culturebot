@@ -1,20 +1,22 @@
 import inspect
 import io
+import re
 import textwrap
 import traceback
-import re
-from pprint import pprint
 from contextlib import redirect_stdout
-
-from utils import chunkify, wrap
+from pprint import pprint
+from typing import Any
 
 import discord
 from discord.ext import commands
-from discord.ext.commands import Context, Bot
+from discord.ext.commands import Bot, Context
+from utils import CCog, chunkify, wrap
 
 
-class Debug(commands.Cog, name='debug'):
+class Debug(CCog, name='debug'):
     """A Cog for command debugging. Owner only."""
+    last_return: Any = None
+    
     def __init__(self, bot: Bot):
         self.bot = bot
         self.last_return = None
@@ -89,6 +91,19 @@ class Debug(commands.Cog, name='debug'):
 
         for chunk in chunkify(textwrap.dedent(inspect.getsource(cmd.callback))):
             await ctx.send(wrap(chunk, lang='py'))
+    
+    @commands.command()
+    @commands.is_owner()
+    @commands.cooldown(1, 1)
+    async def reload(self, ctx: Context, *extensions: str):
+        """Reloads the bot"""
+        extensions = extensions or tuple(self.bot.extensions)
+        
+        for name in extensions:
+            self.bot.reload_extension(name)
+        self.logger.debug(f'Reloaded "{", ".join(extensions)}"')
+        
+        await ctx.send(f"Reloaded {len(extensions)} extensions!")
     
 def setup(bot):
     bot.add_cog(Debug(bot))

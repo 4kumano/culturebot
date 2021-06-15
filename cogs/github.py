@@ -15,9 +15,6 @@ class Github(CCog, name="github"):
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.user = self.config['user']
-        self.repos = self.config['repos'].split(',')
-        self.token = self.config['token']
         self.session = aiohttp.ClientSession()
 
     @commands.Cog.listener()
@@ -33,7 +30,7 @@ class Github(CCog, name="github"):
     @tasks.loop(minutes=10)
     async def fetch_commits(self):
         """Fetches new github commits"""
-        for repo in self.repos:
+        for repo in self.config['repos'].split(','):
             since = datetime.min
             async for msg in self.channel.history():
                 if not msg.embeds:
@@ -46,9 +43,9 @@ class Github(CCog, name="github"):
 
     async def update_commit_activity(self, repo: str, since: datetime):
         async with self.session.get(
-            self.url.format(user=self.user, repo=repo),
+            self.url.format(user=self.config['user'], repo=repo),
             params=dict(since=since.isoformat(), per_page=100),
-            headers={"Authorization": f"token {self.token}"}
+            headers={"Authorization": f"token {self.config['token']}"}
         ) as r:
             data = await r.json()
         

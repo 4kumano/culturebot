@@ -13,11 +13,10 @@ class Fun(CCog, name="fun"):
 
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.soundeffect = self.config['soundeffect']
 
     @commands.command('soundeffect', aliases=['sfx'])
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    async def play_soundeffect(self, ctx: Context, target: Member = None):
+    async def soundeffect(self, ctx: Context, target: Member = None):
         """Joins user's VC and lets keemstar call him a nice word.
 
         If I get canceled for this I have no regrets.
@@ -28,7 +27,7 @@ class Fun(CCog, name="fun"):
         if target.voice is None:
             await ctx.send("Cannot play a soundeffect, the user is not in a vc")
             return
-        soundeffect = discord.FFmpegPCMAudio(self.soundeffect)
+        soundeffect = discord.FFmpegPCMAudio(self.config['soundeffect'])
         try:
             vc = await target.voice.channel.connect()
         except discord.ClientException:
@@ -44,15 +43,15 @@ class Fun(CCog, name="fun"):
         """Does a random dice roll, must be in the format of 1d6"""
         amount,_,sides = dice.partition('d')
         try:
-            amount,sides = int(amount),int(sides)
+            amount, sides = int(amount), int(sides)
         except:
             await ctx.send(f"{dice} is not in valid format, must be `<amount>d<side>` (eg 1d6)")
             return
         
         if amount == 1:
-            await ctx.send(random.randrange(1, sides))
+            await ctx.send(random.randint(1, sides))
         else:
-            rolls = [random.randrange(1, sides) for _ in range(amount)]
+            rolls = [random.randint(1, sides) for _ in range(amount)]
             await ctx.send(', '.join(map(str,rolls)) + f'\ntotal: {sum(rolls)}')
     
     @commands.command('coin', aliases=['toss', 'cointoss'])

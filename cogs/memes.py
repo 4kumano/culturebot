@@ -141,8 +141,7 @@ class Memes(CCog, name="memes"):
         self.bot = bot
         self.session = aiohttp.ClientSession()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def init(self):
         self.drive = PyDrive(self.config['pydrive_settings'], self.config['folder'])
         self.update_memes.start()
 
