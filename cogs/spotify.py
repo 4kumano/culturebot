@@ -1,5 +1,6 @@
 import aiohttp
 import discord
+import requests
 import spotipy
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
@@ -11,10 +12,9 @@ class Spotify(CCog, name="spotify"):
     """Shows what the owner is listening to on spotify"""
 
     def __init__(self, bot: Bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
+        self._session = requests.Session()
         auth = SpotifyOAuth(**self.config, cache_handler=CacheFileHandler('credentials/spotipy_cache.json'))
-        self.spotify = spotipy.Spotify(oauth_manager=auth)
+        self.spotify = spotipy.Spotify(requests_session=self._session, oauth_manager=auth)
         self.keep_token_alive.start()
     
     async def init(self):
@@ -24,10 +24,14 @@ class Spotify(CCog, name="spotify"):
             self.logger.error(e)
             self.bot.remove_cog(self.__cog_name__)
     
+    def cog_unload(self) -> None:
+        self._session.close()
+    
     @commands.command('spotify')
     async def playing(self, ctx: Context):
         """Shows what the owner is currently listening to"""
         data = await asyncify(self.spotify.currently_playing)()
+        print(data)
         track = data['item']
         embed = discord.Embed(
             colour=0x1DB954,

@@ -15,30 +15,6 @@ import humanize
 
 class Utility(CCog, name="utility"):
     """Manager for Servers, Members, Roles and emojis"""
-
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
-    
-    def cog_unload(self):
-        if not self.session.closed:
-            self.bot.loop.create_task(self.session.close())
-    
-    async def _limited_download(self, url: str, max_size: int, chunk_size: int = 0x1000) -> bytes:
-        """Downloads a file with a maximum size, if exceeded raises error"""
-        async with self.session.get(url) as r:
-            r.content_length
-            content = b''
-            while len(content) <= max_size:
-                chunk = await r.content.read(chunk_size)
-                if chunk == b'':
-                    break
-                content += chunk
-            else:
-                raise ValueError(f'File is bigger than {max_size} bytes')
-        
-        return content
-
     @commands.group('emojis', aliases=['emoji', 'emote', 'emotes'], invoke_without_command=True)
     @commands.guild_only()
     async def emojis(self, ctx: Context, emoji: Union[Emoji, PartialEmoji] = None):
@@ -72,7 +48,7 @@ class Utility(CCog, name="utility"):
                 raise commands.UserInputError('No link/image was provided to set the emoji with')
             
             try:
-                async with self.session.get(url) as r:
+                async with self.bot.session.get(url) as r:
                     if r.content_length > 0x40000:
                         await ctx.send('File size is bigger than 256kB')
                         return

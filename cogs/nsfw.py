@@ -21,8 +21,7 @@ class NSFW(CCog, name='nsfw'):
     """A cog for sending nsfw images from danbooru."""
     url: str = "https://danbooru.donmai.us/posts.json"
     
-    def __init__(self, bot: Bot):
-        self.bot = bot
+    def __init__(self, bot):
         self.session = aiohttp.ClientSession(
             headers={'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"}
         )

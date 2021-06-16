@@ -11,9 +11,6 @@ from discord.ext.commands import Bot, Context
 class Fun(CCog, name="fun"):
     """General "fun" commands to mess around."""
 
-    def __init__(self, bot: Bot):
-        self.bot = bot
-
     @commands.command('soundeffect', aliases=['sfx'])
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     async def soundeffect(self, ctx: Context, target: Member = None):

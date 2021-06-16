@@ -16,10 +16,6 @@ from utils import CCog, chunkify, wrap
 class Debug(CCog, name='debug'):
     """A Cog for command debugging. Owner only."""
     last_return: Any = None
-    
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self.last_return = None
 
     async def run_code(self, code: str, env: dict) -> str:
         """Runs provided code returning the str representation of the output.

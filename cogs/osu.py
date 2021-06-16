@@ -21,9 +21,6 @@ class Osu(CCog, name="osu"):
     
     limit: int = 20
 
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
 
     async def init(self):
         await self.bot.wait_until_ready()
@@ -32,11 +29,9 @@ class Osu(CCog, name="osu"):
 
     def cog_unload(self):
         self.fetch_scores.stop()
-        if not self.session.closed:
-            self.bot.loop.create_task(self.session.close())
 
     async def renew_access_token(self):
-        async with self.session.post(
+        async with self.bot.session.post(
             "https://osu.ppy.sh/oauth/token",
             data={
                 "grant_type": "client_credentials",
@@ -56,7 +51,7 @@ class Osu(CCog, name="osu"):
         
         headers = {'Authorization': f"Bearer {self.access_token}"}
         url = self.url + url
-        async with self.session.get(url, headers=headers, **kwargs) as r:
+        async with self.bot.session.get(url, headers=headers, **kwargs) as r:
             return await r.json(content_type=None)
     
     @tasks.loop(minutes=10)

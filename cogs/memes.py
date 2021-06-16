@@ -137,18 +137,14 @@ class Memes(CCog, name="memes"):
     """A utility cog for reposting memes."""
     _memes: List[GoogleDriveFile] = []
 
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
-
     async def init(self):
         self.drive = PyDrive(self.config['pydrive_settings'], self.config['folder'])
         self.update_memes.start()
 
     def cog_unload(self):
         self.update_memes.cancel()
-        if not self.session.closed:
-            self.bot.loop.create_task(self.session.close())
+        if not self.bot.session.closed:
+            self.bot.loop.create_task(self.bot.session.close())
 
     @tasks.loop(hours=6)
     @asyncify

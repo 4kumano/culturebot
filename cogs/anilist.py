@@ -47,10 +47,6 @@ query ($id: Int, $last: Int) {
     """
     channel: TextChannel
 
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
-
     async def init(self):
         await self.bot.wait_until_ready()
         self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
@@ -58,8 +54,6 @@ query ($id: Int, $last: Int) {
 
     def cog_unload(self):
         self.fetch_activity.cancel()
-        if not self.session.closed:
-            self.bot.loop.create_task(self.session.close())
 
     @tasks.loop(minutes=10)
     async def fetch_activity(self):
@@ -111,7 +105,7 @@ query ($id: Int, $last: Int) {
     async def fetch_anilist(self, query: str, variables: dict, **kwargs):
         """Fetches data from anilist api."""
         payload = {'query': query, 'variables': variables}
-        async with self.session.post(self.url, json=payload, **kwargs) as r:
+        async with self.bot.session.post(self.url, json=payload, **kwargs) as r:
             data = await r.json()
         return data['data']
 

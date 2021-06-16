@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from asyncio.events import AbstractEventLoop
 import configparser
 import inspect
 import re
@@ -8,8 +9,9 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from logging import Logger
-from typing import (Any, Callable, Coroutine, Iterable, Mapping, Optional,
+from typing import (Any, Callable, Coroutine, Iterable, Mapping, Optional, TYPE_CHECKING,
                     TypeVar, Union)
 
 import discord
@@ -20,15 +22,23 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
 from config import config, logger
+if TYPE_CHECKING:
+    import bot as _bot
 
 T = TypeVar('T')
 
 class CCog(commands.Cog):
     """A command with a config"""
     __cog_name__: str # discord.py-stubs does not define this???
-    bot: Bot
+    bot: '_bot.CBot'
     config: configparser.SectionProxy
     logger: Logger = logger
+    
+    def __init__(self, bot: '_bot.CBot') -> None:
+        pass
+    
+    async def init(self) -> None:
+        """Runs after __init__ as a task"""
     
     def __new__(cls, *args, **kwargs):
         cls.bot = args[0]
@@ -39,9 +49,10 @@ class CCog(commands.Cog):
         if self.__cog_name__ in config:
             self.config = config[self.__cog_name__]
         
-        init = getattr(self, 'init', None)
-        if init and inspect.iscoroutinefunction(init):
-            self.bot.loop.create_task(init())
+        if not inspect.iscoroutinefunction(self.init):
+            self.bot.loop.run_in_executor(None, self.init)
+        else:
+            self.bot.loop.create_task(self.init())
         
         return self
 
@@ -115,7 +126,6 @@ async def report_bug(ctx: Context, error: Exception):
     assert isinstance(channel, discord.TextChannel)
 
     tb = traceback.format_exception(type(error), error, error.__traceback__)
-    chunks = chunkify(''.join(tb), 1000, newlines=True, wrapped=True)
     
     embed = discord.Embed(
         color=discord.Colour.red(),
@@ -126,7 +136,7 @@ async def report_bug(ctx: Context, error: Exception):
         name=str(ctx.author),
         icon_url=ctx.author.avatar_url
     )
-    for chunk in chunks:
+    for chunk in chunkify(tb, 1000, wrapped=True):
         embed.add_field(
             name='\u200b​',
             value=chunk,
@@ -149,7 +159,12 @@ async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout
     except asyncio.TimeoutError:
         return False
     
-    return str(reaction) == yes
+    if str(reaction) == yes:
+        await message.remove_reaction(no, bot.user)
+        return True
+    else:
+        await message.clear_reactions()
+        return False
 
 async def discord_choice(
     bot: Bot, message: Message, user: Union[User, Member],
@@ -213,7 +228,7 @@ def asyncify(func: Callable[..., T]) -> Callable[..., Coroutine[Any, Any, T]]:
     We don't use an awaitable because of type restrictions in dpy"""
     loop = asyncio.get_event_loop()
     async def wrapper(*args, **kwargs):
-        return await loop.run_in_executor(async_executor, lambda: func(*args, **kwargs))
+        return await loop.run_in_executor(async_executor, partial(func, *args, **kwargs))
     return wrapper
 
 def bot_channel_only(regex: str = r'bot|spam', category: bool = True, dms: bool = True):

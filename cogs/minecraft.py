@@ -16,8 +16,7 @@ class Minecraft(CCog):
     """Short description"""
     gvp_players: dict[str, datetime] = {}
     
-    def __init__(self, bot: Bot):
-        self.bot = bot
+    def init(self):
         self.gvp_server = MinecraftServer.lookup(self.config['gvp'])
     
     @commands.Cog.listener()

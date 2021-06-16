@@ -13,19 +13,13 @@ class Github(CCog, name="github"):
     url = "https://api.github.com/repos/{user}/{repo}/commits"
     channel: TextChannel
 
-    def __init__(self, bot: Bot):
-        self.bot = bot
-        self.session = aiohttp.ClientSession()
-
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def init(self):
+        await self.bot.wait_until_ready()
         self.channel = await self.bot.fetch_channel(self.config.getint('channel')) # type: ignore
         self.fetch_commits.start()
 
     def cog_unload(self):
         self.fetch_commits.cancel()
-        if not self.session.closed:
-            self.bot.loop.create_task(self.session.close())
 
     @tasks.loop(minutes=10)
     async def fetch_commits(self):
@@ -42,7 +36,7 @@ class Github(CCog, name="github"):
             await self.update_commit_activity(repo, since)
 
     async def update_commit_activity(self, repo: str, since: datetime):
-        async with self.session.get(
+        async with self.bot.session.get(
             self.url.format(user=self.config['user'], repo=repo),
             params=dict(since=since.isoformat(), per_page=100),
             headers={"Authorization": f"token {self.config['token']}"}
@@ -63,7 +57,7 @@ class Github(CCog, name="github"):
                 icon_url=commit['author']['avatar_url']
             ).add_field(
                 name=commmit_name.strip(),
-                value=message.strip() or "\u200b",
+                value=message.strip()[:1024] or "\u200b",
                 inline=False
             ).set_footer(
                 text=commit['sha'],
