@@ -16,11 +16,10 @@ class Minecraft(CCog):
     """Short description"""
     gvp_players: dict[str, datetime] = {}
     
-    def init(self):
+    async def init(self):
         self.gvp_server = MinecraftServer.lookup(self.config['gvp'])
-    
-    @commands.Cog.listener()
-    async def on_ready(self):
+        
+        await self.bot.wait_until_ready()
         channel = await self.bot.fetch_channel(self.config.getint('gvp_channel'))
         assert isinstance(channel, TextChannel)
         
@@ -85,6 +84,7 @@ class Minecraft(CCog):
         await ctx.send(embed=embed)
     
     @commands.command()
+    @commands.check(lambda ctx: ctx.guild == 790498180504485918)
     async def gvp(self, ctx: Context):
         """Shows the status of the gvp minecraft server"""
         embed = await self.get_status_embed(self.gvp_server, gvp=True)

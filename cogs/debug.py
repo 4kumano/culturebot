@@ -88,7 +88,7 @@ class Debug(CCog, name='debug'):
         for chunk in chunkify(textwrap.dedent(inspect.getsource(cmd.callback))):
             await ctx.send(wrap(chunk, lang='py'))
     
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     @commands.cooldown(1, 1)
     async def reload(self, ctx: Context, *extensions: str):

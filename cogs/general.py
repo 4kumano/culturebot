@@ -4,16 +4,13 @@ import discord
 from discord import Forbidden
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
-from utils import config
+from utils import CCog, config
 
 start_time = time.time()
 
-class General(commands.Cog, name="general"):
+class General(CCog, name="general"):
     """General all-purpose commands every bot has"""
-
-    def __init__(self, bot: Bot):
-        self.bot = bot
-
+    
     @commands.command("info", aliases=["botinfo"])
     async def info(self, ctx: Context):
         """Basic info about the bot.

@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 T = TypeVar('T')
 
 class CCog(commands.Cog):
-    """A command with a config"""
+    """A cog with a config, logger and an asynchronous init()"""
     __cog_name__: str # discord.py-stubs does not define this???
     bot: '_bot.CBot'
     config: configparser.SectionProxy

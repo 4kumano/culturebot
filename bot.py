@@ -102,9 +102,7 @@ bot = CBot(
         ending_note="Prefix: >>",
         show_index=False
     ),
-    intents=discord.Intents.all(),
-    status=discord.Status.dnd,
-    activity=discord.CustomActivity("Reloading bot...", emoji='♻️')
+    intents=discord.Intents.all()
 )
 
 for file in os.listdir('./cogs'):

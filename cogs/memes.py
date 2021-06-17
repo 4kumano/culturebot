@@ -191,7 +191,7 @@ class Memes(CCog, name="memes"):
         memes = []
         async for msg in channel.history():
             memes += [i.url for i in msg.attachments]
-            memes += [i.url for i in msg.embeds if i is not discord.Embed.Empty]
+            memes += [i.url for i in msg.embeds if i.url]
         if not memes:
             await ctx.send(f'Channel {channel.mention} does not have any memes.')
             return

@@ -12,6 +12,7 @@ class Fun(CCog, name="fun"):
     """General "fun" commands to mess around."""
 
     @commands.command('soundeffect', aliases=['sfx'])
+    @commands.check(lambda ctx: ctx.guild == 790498180504485918)
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     async def soundeffect(self, ctx: Context, target: Member = None):
         """Joins user's VC and lets keemstar call him a nice word.

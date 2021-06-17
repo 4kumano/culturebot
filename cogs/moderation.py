@@ -97,11 +97,18 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.command('lock')
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
-    async def lock(self, ctx: Context, channel: TextChannel = None):
+    async def lock(self, ctx: Context, channel: TextChannel = None, *roles: Role):
+        """Locks a channel for all members. 
+        
+        You can specify which roles to disallow
+        """
         channel = channel or ctx.channel # type: ignore
-        msg = await ctx.send(f':lock: Locked {channel.mention}')
-        await channel.set_permissions(ctx.guild.roles[0], send_messages=False)
+        roles = roles or [ctx.guild.roles[0]] # type: ignore
+        
+        for role in roles:
+            await channel.set_permissions(role, send_messages=False)
 
+        msg = await ctx.send(f':lock: Locked {channel.mention}')
         await msg.add_reaction('↩️')
         try:
             await self.bot.wait_for(
@@ -117,9 +124,14 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.command('unlock')
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
-    async def unlock(self, ctx: Context, channel: TextChannel = None):
+    async def unlock(self, ctx: Context, channel: TextChannel = None, *roles: Role):
+        """Unlocks a previously locked channel."""
         channel = channel or ctx.channel # type: ignore
-        await channel.set_permissions(ctx.guild.roles[0], overwrite=None)
+        roles = roles or [ctx.guild.roles[0]] # type: ignore
+        
+        for role in roles:
+            await channel.set_permissions(role, overwrite=None)
+        
         await ctx.send(f':unlock: Unlocked {channel.mention}')
 
 
