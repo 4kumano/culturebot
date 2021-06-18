@@ -191,7 +191,7 @@ class NSFW(CCog, name='nsfw'):
             }
         ) as r:
             data = await r.json()
-            return sorted(data['hentai_videos'], key=lambda i: i['views'])
+            return sorted(data['hentai_videos'], key=lambda i: i['views'], reverse=True)
     
     @commands.group(invoke_without_command=True)
     @commands.is_nsfw()

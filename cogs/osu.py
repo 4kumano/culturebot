@@ -1,13 +1,13 @@
+import re
 from datetime import datetime, timedelta
-from urllib.parse import urljoin
+from typing import Union
 
-import aiohttp
 import discord
+import humanize
 from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Bot, Context
-from utils import CCog, humandate, send_chunks
-import humanize
+from discord.ext.commands import Context
+from utils import CCog, humandate
 
 OSU_LOGO = "https://i.ppy.sh/013ed2c11b34720790e74035d9f49078d5e9aa64/68747470733a2f2f6f73752e7070792e73682f77696b692f696d616765732f4272616e645f6964656e746974795f67756964656c696e65732f696d672f75736167652d66756c6c2d636f6c6f75722e706e67"
 
@@ -142,9 +142,39 @@ class Osu(CCog, name="osu"):
         await ctx.send(embed=embed)
     
     @osu.group('beatmap', aliases=['map'])
-    async def osu_beatmap(self, ctx: Context, beatmap: str):
-        """Shows beatmap info"""
-        await ctx.send('Beatmaps not supported yet, please yell at the owner')
+    async def osu_beatmap(self, ctx: Context, beatmap: Union[int, str]):
+        """Shows beatmap info
+        
+        Takes in either the beatmap id or the url.
+        Note that beatmap and beatmapsets are different things
+        """
+        if isinstance(beatmap, str):
+            match = re.search(r"(?:beatmapsets/\d+#osu|beatmaps)/(\d+)", beatmap)
+            if match is None:
+                raise commands.BadArgument("Expected a beatmap id or a beatmap url")
+            beatmap = match.group(1)
+        
+        data = await self.request(f"/beatmaps/{beatmap}")
+        beatmapset = data['beatmapset']
+        del data['failtimes']
+        embed = discord.Embed(
+            colour=0xff66aa,
+            title="osu! beatmap"
+        ).set_author(
+            name=beatmapset['title'],
+            url=data['url'],
+            icon_url=beatmapset['covers']['list']
+        ).set_image(
+            url=beatmapset['covers']['cover@2x']
+        ).add_field(
+            name="Version",
+            value=f"Version: **{data['version']}** | Difficulty: **{data['difficulty_rating']}** stars\n"
+                  f"ar: **{data['ar']}** | cs: **{data['cs']}** | acc: **{data['accuracy']}** | drain: **{data['drain']}**\n"
+                  f"Total plays: **{data['playcount']:,}** | Total passes: **{data['passcount']:,}** (**{data['passcount']/data['playcount']*100:.2f}%**)"
+        ).set_footer(
+            text=f"id: {data['id']}"    
+        )
+        await ctx.send(embed=embed)
 
 
 def setup(bot):

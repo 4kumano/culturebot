@@ -1,11 +1,12 @@
 import difflib
 import os
+import random
 import sys
 import textwrap
 import time
 import traceback
-import aiohttp
 
+import aiohttp
 import discord
 from discord import Message
 from discord.ext import commands, tasks
@@ -19,7 +20,11 @@ class CBot(commands.Bot):
     __slots__ = ()
     
     DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == 'DEBUG'
-    session = aiohttp.ClientSession()
+    session: aiohttp.ClientSession
+    
+    async def start(self, *args, **kwargs) -> None:
+        self.session = aiohttp.ClientSession()
+        await super().start(*args, **kwargs)
     
     async def close(self) -> None:
         await self.session.close()
@@ -37,6 +42,8 @@ class CBot(commands.Bot):
         await bot.process_commands(message)
 
     async def on_message_edit(self, before: Message, after: Message):
+        if after.author.bot:
+            return
         await bot.process_commands(after)
 
     async def on_command_error(self, ctx: Context, error: Exception):
@@ -122,7 +129,7 @@ async def update_hentai_presence():
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching, 
-            name=f"hentai - {hentai[0]['name']}",
+            name=f"hentai - {random.choice(hentai[:5])['name']}",
         )
     )
 
