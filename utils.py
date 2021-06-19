@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio.events import AbstractEventLoop
 import configparser
 import inspect
 import re
@@ -11,8 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from logging import Logger
-from typing import (Any, Callable, Coroutine, Iterable, Mapping, Optional, TYPE_CHECKING,
-                    TypeVar, Union)
+from typing import (TYPE_CHECKING, Any, Callable, Coroutine, Iterable, Mapping,
+                    Optional, TypeVar, Union)
 
 import discord
 from discord import Member, Message, NotFound, User
@@ -22,6 +21,7 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
 from config import config, logger
+
 if TYPE_CHECKING:
     import bot as _bot
 
