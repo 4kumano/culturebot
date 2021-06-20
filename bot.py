@@ -24,6 +24,10 @@ class CBot(commands.Bot):
     
     async def start(self, *args, **kwargs) -> None:
         self.session = aiohttp.ClientSession()
+        update_hentai_presence.start()
+        if bot.DEBUG:
+            check_for_update.start()
+        
         await super().start(*args, **kwargs)
     
     async def close(self) -> None:
@@ -32,9 +36,6 @@ class CBot(commands.Bot):
     
     async def on_ready(self):
         logger.info(f'Logged into {len(bot.guilds)} servers.')
-        update_hentai_presence.start()
-        if bot.DEBUG:
-            check_for_update.start()
 
     async def on_message(self, message: Message):
         if message.author.bot:
@@ -125,6 +126,7 @@ for file in os.listdir('./cogs'):
 
 @tasks.loop(seconds=60, reconnect=True)
 async def update_hentai_presence():
+    await bot.wait_until_ready()
     hentai = await bot.cogs['nsfw'].hanime_random() # type: ignore
     await bot.change_presence(
         activity=discord.Activity(

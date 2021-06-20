@@ -1,16 +1,13 @@
-from datetime import datetime, timedelta, timezone
-from os import name
+from datetime import datetime
 from typing import Union
 
 import aiohttp
 import discord
-from discord import Emoji, Member, PartialEmoji, Role, User
+from discord import ClientUser, Emoji, Guild, Member, PartialEmoji, Role, User
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
-from discord.user import ClientUser
+from discord.ext.commands import Context
 from pretty_help import DefaultMenu
 from utils import CCog, humandate, utc_as_timezone
-import humanize
 
 
 class Utility(CCog, name="utility"):
@@ -31,6 +28,7 @@ class Utility(CCog, name="utility"):
         await ctx.send(classic + '\n' + animated)
     
     @emojis.command('add', aliases=['set', 'edit'])
+    @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
     async def set_emoji(self, ctx: Context, name: str, emoji: Union[PartialEmoji, str, None] = None, *roles: Role):
         """Adds or sets an emoji to another emoji"""
@@ -71,6 +69,7 @@ class Utility(CCog, name="utility"):
                 await existing.delete()
         
     @emojis.command('rename')
+    @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
     async def rename_emoji(self, ctx: Context, emoji: Emoji, name: str):
         """Renames an emoji"""
@@ -78,6 +77,7 @@ class Utility(CCog, name="utility"):
         await ctx.send(f'Renamed {emoji}')
     
     @emojis.command('delete', aliases=['remove', 'del'])
+    @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
     async def delete_emoji(self, ctx: Context, emoji: Emoji):
         """Deletes an emoji"""
@@ -166,6 +166,58 @@ class Utility(CCog, name="utility"):
             text=f"ID: {user.id}"
         )
         
+        await ctx.send(embed=embed)
+    
+    @commands.command('role', aliases=['roleinfo'])
+    async def role(self, ctx: Context, role: Role):
+        """Shows info about a role"""
+        check = '❌', '✅'
+        perms = [f"{check[enabled]} {name.replace('_', ' ').title()}" for name, enabled in role.permissions]
+        embed = discord.Embed(
+            colour=role.colour if role.colour.value else role.guild.me.colour,
+            title=role.name,
+            description=f"{check[role.mentionable]} Mentionable\n"
+                        f"{check[role.hoist]} Hoisted\n"
+                        f"{check[role.managed]} Managed\n"
+                        f"Position: {role.position}/{len(role.guild.roles)}\n"
+                        f"Color: {role.colour}\n"
+                        f"Created at: {humandate(role.created_at)}\n"
+        ).add_field(
+            name="Permissions",
+            value='\n'.join(perms[len(perms)//2:])
+        ).add_field(
+            name="\u200b",
+            value='\n'.join(perms[:len(perms)//2])
+        ).set_footer(
+            text=role.id
+        )
+        await ctx.send(embed=embed)
+    
+    @commands.command('guild', aliases=['server', 'guildinfo', 'serverinfo'])
+    async def guild(self, ctx: Context, guild: Guild = None):
+        """Shows info abou a guild."""
+        if guild is None and ctx.guild is None:
+            raise commands.NoPrivateMessage()
+        guild = guild or ctx.guild # type: ignore
+        
+        embed = discord.Embed(
+            colour=guild.me.colour,
+            title=guild.name,
+            description=f"Owner: {guild.owner.mention}\n"
+                        f"Region: {guild.region}\n"
+                        f"Created at: {guild.created_at}\n"
+                        f"Members: {guild.member_count} ({sum(m.status is not discord.Status.offline for m in guild.members)} online)\n"
+                        f"Text channels: {len(guild.text_channels)}\n"
+                        f"Voice channels: {len(guild.voice_channels)}"
+        ).set_thumbnail(
+            url=guild.icon_url
+        ).set_footer(
+            text=guild.id
+        )
+        if 'VANITY_URL' in guild.features:
+            embed.url = (await guild.vanity_invite()).url
+        if guild.banner_url:
+            embed.set_image(url=guild.banner_url)
         await ctx.send(embed=embed)
     
     @commands.command('activity', aliases=['activities'])
