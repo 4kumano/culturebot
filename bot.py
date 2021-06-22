@@ -23,6 +23,7 @@ class CBot(commands.Bot):
     session: aiohttp.ClientSession
     
     async def start(self, *args, **kwargs) -> None:
+        """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
         update_hentai_presence.start()
         if bot.DEBUG:
@@ -31,6 +32,7 @@ class CBot(commands.Bot):
         await super().start(*args, **kwargs)
     
     async def close(self) -> None:
+        """Closes the bot and its session."""
         await self.session.close()
         await super().close()
     
@@ -86,6 +88,7 @@ class CBot(commands.Bot):
             raise error
 
     async def before_invoke(self, ctx: Context):
+        """Logs a command to the console along with all neccessary info"""
         cmd_path = ctx.command.full_parent_name.replace(' ', '.')
         command = (cmd_path + '.' if cmd_path else '') + ctx.command.name
         
@@ -93,6 +96,7 @@ class CBot(commands.Bot):
         logger.debug(f"g:{ctx.guild.id}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
 
     async def after_invoke(self, ctx: Context):
+        """Deletes the message if invoked with a silent prefix"""
         if ctx.prefix == config['bot']['silent_prefix']:
             try:
                 await ctx.message.delete()

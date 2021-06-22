@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Union
 
@@ -6,6 +7,7 @@ import discord
 from discord import ClientUser, Emoji, Guild, Member, PartialEmoji, Role, User
 from discord.ext import commands
 from discord.ext.commands import Context
+from discord.message import Message
 from pretty_help import DefaultMenu
 from utils import CCog, humandate, utc_as_timezone
 
@@ -219,6 +221,21 @@ class Utility(CCog, name="utility"):
         if guild.banner_url:
             embed.set_image(url=guild.banner_url)
         await ctx.send(embed=embed)
+    
+    @commands.command('react')
+    @commands.bot_has_permissions(add_reactions=True)
+    async def react(self, ctx: Context, message: Message, emoji: Union[Emoji, PartialEmoji]):
+        """Reacts to a message with an emoji so you can add your own reaction"""
+        await message.add_reaction(emoji)
+        try:
+            await self.bot.wait_for(
+                'raw_reaction_add', 
+                check=lambda p: p.user_id == ctx.author.id and p.message_id == message.id and str(p.emoji) == str(emoji), 
+                timeout=30
+            )
+        except asyncio.TimeoutError:
+            pass
+        await message.remove_reaction(emoji, message.guild.me)
     
     @commands.command('activity', aliases=['activities'])
     @commands.guild_only()
