@@ -21,7 +21,7 @@ class Utility(CCog, name="utility"):
         if emoji:
             return self.emoji_details.invoke(ctx)
         
-        guild = ctx.guild
+        guild: discord.Guild = ctx.guild # type: ignore
         await ctx.send(f"emojis in {guild}: ({len(guild.emojis)}/{guild.emoji_limit})")
         classic = animated = ''
         for i in guild.emojis:
@@ -32,6 +32,7 @@ class Utility(CCog, name="utility"):
     @emojis.command('add', aliases=['set', 'edit'])
     @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
+    @commands.guild_only()
     async def set_emoji(self, ctx: Context, name: str, emoji: Union[PartialEmoji, str, None] = None, *roles: Role):
         """Adds or sets an emoji to another emoji"""
         if not 2 <= len(name) <= 32:
@@ -49,7 +50,7 @@ class Utility(CCog, name="utility"):
             
             try:
                 async with self.bot.session.get(url) as r:
-                    if r.content_length > 0x40000:
+                    if r.content_length is None or r.content_length > 0x40000:
                         await ctx.send('File size is bigger than 256kB')
                         return
                     image = await r.read()
@@ -57,6 +58,7 @@ class Utility(CCog, name="utility"):
                 await ctx.send(f"The {'image url' if emoji else 'attached image'} is not valid")
                 return
         
+        assert ctx.guild is not None
         existing = discord.utils.get(ctx.guild.emojis, name=name)
         
         try:
@@ -122,24 +124,11 @@ class Utility(CCog, name="utility"):
         await ctx.send(embed=embed)
     
     @commands.group('user', aliases=['member', 'userinfo'])
-    async def user(self, ctx: Context, user: Union[Member, User] = None):
+    async def user(self, ctx: Context, user: Union[Member, User, ClientUser] = None):
         """Shows info about a user"""
         user = user or ctx.author
-        if isinstance(user, ClientUser):
-            user = ctx.guild.me
         
-        if isinstance(user, User):
-            embed = discord.Embed(
-                colour=discord.Colour.light_grey(),
-                description=user.mention
-            ).add_field(
-                name="Name",
-                value=str(user)
-            ).add_field(
-                name='Account created at',
-                value=humandate(user.created_at)
-            )
-        else:
+        if isinstance(user, Member):
             embed = discord.Embed(
                 colour=user.colour if user.colour.value else discord.Colour.light_grey(),
                 description=user.mention
@@ -157,6 +146,17 @@ class Utility(CCog, name="utility"):
                 name='Permissions',
                 value=', '.join(name.replace('_', ' ').title() for name, enabled in user.guild_permissions if enabled),
                 inline=False
+            )
+        else:
+            embed = discord.Embed(
+                colour=discord.Colour.light_grey(),
+                description=user.mention
+            ).add_field(
+                name="Name",
+                value=str(user)
+            ).add_field(
+                name='Account created at',
+                value=humandate(user.created_at)
             )
         
         embed.set_author(
@@ -205,7 +205,7 @@ class Utility(CCog, name="utility"):
         embed = discord.Embed(
             colour=guild.me.colour,
             title=guild.name,
-            description=f"Owner: {guild.owner.mention}\n"
+            description=f"Owner: {guild.owner.mention if guild.owner else 'nobody'}\n"
                         f"Region: {guild.region}\n"
                         f"Created at: {guild.created_at}\n"
                         f"Members: {guild.member_count} ({sum(m.status is not discord.Status.offline for m in guild.members)} online)\n"
@@ -235,7 +235,7 @@ class Utility(CCog, name="utility"):
             )
         except asyncio.TimeoutError:
             pass
-        await message.remove_reaction(emoji, message.guild.me)
+        await message.remove_reaction(emoji, ctx.bot.user)
     
     @commands.command('activity', aliases=['activities'])
     @commands.guild_only()

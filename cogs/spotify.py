@@ -19,10 +19,18 @@ class Spotify(CCog, name="spotify"):
     
     async def init(self):
         try:
-            self.user = await self.bot.loop.run_in_executor(None, self.spotify.me)
+            user = await self.bot.loop.run_in_executor(None, self.spotify.me)
         except Exception as e:
             self.logger.error(e)
             self.bot.remove_cog(self.__cog_name__)
+            return
+        
+        if user is None:
+            self.logger.error("The user wasn't found")
+            self.bot.remove_cog(self.__cog_name__)
+            return
+        
+        self.user = user
     
     def cog_unload(self) -> None:
         self._session.close()
@@ -31,7 +39,9 @@ class Spotify(CCog, name="spotify"):
     async def playing(self, ctx: Context):
         """Shows what the owner is currently listening to"""
         data = await asyncify(self.spotify.currently_playing)()
-        print(data)
+        if data is None:
+            await ctx.send("The user doesn't seem to be currently playing anything")
+            return
         track = data['item']
         embed = discord.Embed(
             colour=0x1DB954,
@@ -59,7 +69,7 @@ class Spotify(CCog, name="spotify"):
         
         This is due to a bug I don't understand
         """
-        self.spotify.auth_manager.get_access_token()
+        self.spotify.auth_manager.get_access_token() # type: ignore
 
 def setup(bot):
     bot.add_cog(Spotify(bot))

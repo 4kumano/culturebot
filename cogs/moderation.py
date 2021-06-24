@@ -61,7 +61,7 @@ class Moderation(commands.Cog, name="moderation"):
             add_reactions=False
         )
         for channel in guild.text_channels:
-            if channel.permissions_synced:
+            if channel.category and channel.permissions_synced:
                 channel = channel.category
             await channel.set_permissions(role, overwrite=overwrite)
         

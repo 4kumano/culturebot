@@ -23,7 +23,7 @@ class Misc(CCog):
         Because you bitches were spamming it's now limited to 1 per 5s.
         """
         target = target or ctx.author # type: ignore
-        if target.voice is None:
+        if target.voice is None or target.voice.channel is None:
             await ctx.send("Cannot play a soundeffect, the user is not in a vc")
             return
         soundeffect = discord.FFmpegPCMAudio(self.config['soundeffect'])
@@ -137,7 +137,7 @@ class Misc(CCog):
         """
         await ctx.message.delete()
         for channel in target.guild.channels:
-            if channel.permissions_synced:
+            if channel.category and channel.permissions_synced:
                 channel = channel.category
             await channel.set_permissions(target, view_channel=False)
         
@@ -155,7 +155,7 @@ class Misc(CCog):
         
         await msg.clear_reactions()
         for channel in target.guild.channels:
-            if channel.permissions_synced:
+            if channel.category and channel.permissions_synced:
                 channel = channel.category
             await channel.set_permissions(target, overwrite=None)
         

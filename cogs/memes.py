@@ -179,6 +179,8 @@ class Memes(CCog, name="memes"):
         You can specify which channel to repost from.
         """
         if channel is None:
+            if ctx.guild is None:
+                raise commands.CheckFailure("You must set a channel when in direct messages.")
             channels = [channel for channel in ctx.guild.text_channels
                         if 'meme' in channel.name]
             if not channels:

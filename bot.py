@@ -21,6 +21,7 @@ class CBot(commands.Bot):
     
     DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == 'DEBUG'
     session: aiohttp.ClientSession
+    help_command: commands.HelpCommand
     
     async def start(self, *args, **kwargs) -> None:
         """Starts a bot and all misc tasks"""
@@ -93,7 +94,7 @@ class CBot(commands.Bot):
         command = (cmd_path + '.' if cmd_path else '') + ctx.command.name
         
         content = textwrap.shorten(ctx.message.content, 80, placeholder='...')
-        logger.debug(f"g:{ctx.guild.id}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
+        logger.debug(f"g:{ctx.guild.id if ctx.guild else '0'}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
 
     async def after_invoke(self, ctx: Context):
         """Deletes the message if invoked with a silent prefix"""
