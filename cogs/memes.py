@@ -20,7 +20,13 @@ class PyDrive:
     def __init__(self, settings_file: str = 'pydrive_settings.yaml', directory: str = 'memebin'):
         """Authenticates and connects to drive."""
         auth = GoogleAuth(settings_file)
-        auth.LocalWebserverAuth()
+        try:
+            auth.LocalWebserverAuth()
+        except RefreshError:
+            print('The provided gdrive token has expired, please refresh it')
+            os.remove(auth.settings['save_credentials_file'])
+            auth = GoogleAuth(settings_file)
+            auth.LocalWebserverAuth()
         self.drive = GoogleDrive(auth)
         self.directory = self._get_directory(directory)
 
@@ -106,8 +112,8 @@ class PyDrive:
 
         print(f'Deleting {len(todelete)} files...')
         for file in todelete:
-            print(file)
             file.Delete()
+            print(f"deleted {file['title']}")
 
         print(f'Uploading {len(toupload)} files...')
 
@@ -118,20 +124,20 @@ class PyDrive:
             ]
 
             for i, future in enumerate(futures, 1):
-                future.result()
-                print(i)
+                file = future.result()
+                print(f"{i:2d}: {file['title']}")
 
         print(f'Uploaded {len(files)} files')
 
 @asyncify
 @LoadAuth
-def _download_file(file: GoogleDriveFile, spoiler: bool = False) -> Optional[File]:
+def _download_file(file: GoogleDriveFile, **kwargs) -> Optional[File]:
     """Downloads a pydrive file object and returns a discord file object"""
     try:
         content = io.BytesIO(file._DownloadFromUrl(file['downloadUrl']))
     except ApiRequestError:
         return None
-    return File(content, file['title'], spoiler=spoiler)
+    return File(content, file['title'], **kwargs)
 
 class Memes(CCog, name="memes"):
     """A utility cog for reposting memes."""
@@ -214,13 +220,15 @@ class Memes(CCog, name="memes"):
                 await channel.send(file=File(os.path.join(path, file), file))
             except discord.HTTPException:
                 pass
-
+    
+    @commands.command('upload_memes', hidden=True)
+    @commands.is_owner()
+    async def upload_memes(self, ctx: Context):
+        await ctx.send('Console interaction started')
+        await asyncify(self.drive.upload_directory)(self.config['localdir'])
 
 def setup(bot):
-    try:
-        bot.add_cog(Memes(bot))
-    except RefreshError as e:
-        Memes.logger.error(e)
+    bot.add_cog(Memes(bot))
 
 
 if __name__ == '__main__':
