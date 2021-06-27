@@ -6,20 +6,21 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable, Coroutine, Optional, TypeVar
+from itertools import repeat
+from typing import Any, Callable, Coroutine, Iterable, Iterator, Optional, TypeVar, Union
 
 import discord
 from discord.ext import commands
 from discord.ext.commands import Context
 
 T = TypeVar("T")
-
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
 
 def humandate(dt: Optional[datetime]) -> str:
     if dt is None:
         return "unknown"
     return dt.strftime("%a, %b %d, %Y %H:%M %p")
-
 
 def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) -> datetime:
     """Converts a random utc datetime into a correct local timezone aware datetime"""
@@ -34,10 +35,7 @@ def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) ->
     dt += delta
     return dt if naive else dt.astimezone(tz)
 
-
 async_executor = ThreadPoolExecutor()
-
-
 def asyncify(func: Callable[..., T]) -> Callable[..., Coroutine[Any, Any, T]]:
     """Turn a normal function into a coroutine.
     We don't use an awaitable because of type restrictions in dpy"""
@@ -47,7 +45,6 @@ def asyncify(func: Callable[..., T]) -> Callable[..., Coroutine[Any, Any, T]]:
         return await loop.run_in_executor(async_executor, partial(func, *args, **kwargs))
 
     return wrapper
-
 
 def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool = True):
     def predicate(ctx: Context):
@@ -63,3 +60,10 @@ def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool 
         raise commands.CheckFailure("This channel is not a bot channel.")
 
     return commands.check(predicate)
+
+def repeat_once(first: T1, rest: T2 = '\u200b') -> Iterator[Union[T1, T2]]:
+    yield first
+    yield from repeat(rest)
+
+def zip_once(iterable: Iterable[T], first: T1, rest: T2 = '\u200b') -> Iterator[tuple[T, Union[T1, T2]]]:
+    yield from zip(iterable, repeat_once(first, rest))

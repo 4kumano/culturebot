@@ -19,7 +19,7 @@ class Utility(CCog, name="utility"):
     async def emojis(self, ctx: Context, emoji: Union[Emoji, PartialEmoji] = None):
         """Shows and manages all emojis in a guild"""
         if emoji:
-            return self.emoji_details.invoke(ctx)
+            return await self.emoji_details(ctx, emoji)
         
         guild: discord.Guild = ctx.guild # type: ignore
         await ctx.send(f"emojis in {guild}: ({len(guild.emojis)}/{guild.emoji_limit})")
@@ -224,8 +224,16 @@ class Utility(CCog, name="utility"):
     
     @commands.command('react')
     @commands.bot_has_permissions(add_reactions=True)
-    async def react(self, ctx: Context, message: Message, emoji: Union[Emoji, PartialEmoji]):
-        """Reacts to a message with an emoji so you can add your own reaction"""
+    async def react(self, ctx: Context, emoji: Union[Emoji, PartialEmoji], message: Message = None):
+        """Reacts to a message with an emoji so you can add your own reaction
+        
+        If no message is provided the bot simply sends the emoji and deletes your command.
+        """
+        if message is None:
+            await ctx.message.delete()
+            await ctx.send(str(emoji))
+            return
+        
         await message.add_reaction(emoji)
         try:
             await self.bot.wait_for(

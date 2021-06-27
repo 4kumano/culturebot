@@ -61,12 +61,8 @@ class CBot(commands.Bot):
                     await ctx.send(chunk)
                 return
 
-            msg = await ctx.send("We're sorry, something went wrong. Would you like to submit a bug report?")
-            if await confirm(bot, msg, ctx.author):
-                await ctx.send("Thank you, a bug report has been sent")
-                await report_bug(ctx, e)
-            else:
-                await msg.edit(content="We're sorry, something went wrong")
+            await ctx.send("We're sorry, something went wrong. This error has been reported to the owner.")
+            await report_bug(ctx, e)
 
         elif isinstance(error, commands.CommandNotFound):
             if not ctx.invoked_with:
@@ -90,23 +86,6 @@ class CBot(commands.Bot):
         else:
             raise error
 
-    async def before_invoke(self, ctx: Context):
-        """Logs a command to the console along with all neccessary info"""
-        cmd_path = ctx.command.full_parent_name.replace(" ", ".")
-        command = (cmd_path + "." if cmd_path else "") + ctx.command.name
-
-        g = ctx.guild.id if ctx.guild else '0'
-        content = textwrap.shorten(ctx.message.content, 80, placeholder="...")
-        logger.debug(f"g:{g}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
-
-    async def after_invoke(self, ctx: Context):
-        """Deletes the message if invoked with a silent prefix"""
-        if ctx.prefix == config["bot"]["silent_prefix"]:
-            try:
-                await ctx.message.delete()
-            except discord.Forbidden:
-                pass
-
 
 prefixes = (config["bot"]["prefix"], config["bot"]["silent_prefix"])
 bot = CBot(
@@ -116,6 +95,22 @@ bot = CBot(
     help_command=PrettyHelp(color=0x42F56C, ending_note=f"Prefix: {config['bot']['prefix']}", show_index=False),
     intents=discord.Intents.all(),
 )
+
+@bot.before_invoke
+async def before_invoke(ctx: Context):
+    """Logs a command to the console along with all neccessary info"""
+    if ctx.prefix == config["bot"]["silent_prefix"]:
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+    
+    cmd_path = ctx.command.full_parent_name.replace(" ", ".")
+    command = (cmd_path + "." if cmd_path else "") + ctx.command.name
+
+    g = ctx.guild.id if ctx.guild else '0'
+    content = textwrap.shorten(ctx.message.content, 80, placeholder="...")
+    logger.debug(f"g:{g}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
 
 for file in os.listdir("./cogs"):
     if file[0] == "_":

@@ -6,16 +6,17 @@ from datetime import datetime
 from typing import Mapping, Optional, TypeVar, Union
 
 import discord
-from discord import Member, Message, NotFound, User
+from discord import Member, Message, NotFound, TextChannel, User
 from discord.ext.commands import Bot, Context
 
 from .config import config
 from .formatting import chunkify
+from .utils import zip_once
 
 T = TypeVar("T")
 
 
-async def report_bug(ctx: Context, error: Exception):
+async def report_bug(ctx: Context, error: Exception, description: str = ''):
     """Reports a bug to a channel"""
     channel_id = config["bot"].getint("bugreport")
     channel = ctx.bot.get_channel(channel_id) or await ctx.bot.fetch_channel(channel_id)
@@ -25,16 +26,20 @@ async def report_bug(ctx: Context, error: Exception):
 
     embed = discord.Embed(
         color=discord.Colour.red(),
-        title=type(error).__name__,
+        title="A bug was encountered!",
         url=ctx.message.jump_url,
         timestamp=datetime.now()
     ).set_author(
         name=str(ctx.author),
         icon_url=ctx.author.avatar_url
     )
-    for chunk in chunkify(tb, 1000, wrapped=True):
-        embed.add_field(name="\u200b​", value=chunk, inline=False)
-
+    
+    for name, chunk in zip_once(chunkify(description, 1000, wrapped=True), 'description'):
+        embed.add_field(name=name, value=chunk, inline=False)
+    
+    for name, chunk in zip_once(chunkify(tb, 1000, wrapped=True), 'traceback'):
+        embed.add_field(name=name, value=chunk, inline=False)
+    
     await channel.send(embed=embed)
 
 
@@ -105,3 +110,12 @@ async def discord_choice(
         return None
 
     return reactions[str(reaction)]
+
+async def discord_input(bot: Bot, user: Union[User, Member], channel: TextChannel, timeout: int = 60) -> Optional[Message]:
+    try:
+        return await bot.wait_for(
+            "message", check=lambda m: m.author == user and m.channel == channel, timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        return None
+    

@@ -4,11 +4,10 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
-import aiohttp
 import discord
 from discord import File, TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Bot, Context
+from discord.ext.commands import Context
 from pydrive.auth import GoogleAuth, LoadAuth, RefreshError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
