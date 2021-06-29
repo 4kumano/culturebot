@@ -75,8 +75,8 @@ class Moderation(commands.Cog, name="moderation"):
 
         They will not be able to speak until they are unmuted.
         """
-        if member.bot:
-            await ctx.send('Cannot mute a bot.')
+        if member.guild_permissions.administrator:
+            await ctx.send('Cannot mute an admin')
             return
         role = await self.get_muted_role(ctx.guild) # type: ignore
         await member.add_roles(role, reason=reason)

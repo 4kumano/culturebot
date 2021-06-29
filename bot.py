@@ -42,11 +42,6 @@ class CBot(commands.Bot):
     async def on_ready(self):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
 
-    async def on_message(self, message: Message):
-        if message.author.bot:
-            return
-        await bot.process_commands(message)
-
     async def on_message_edit(self, before: Message, after: Message):
         if after.author.bot:
             return
@@ -143,7 +138,8 @@ async def check_for_update():
     extensions = [
         (name, module)
         for name, module in sys.modules.items()
-        if getattr(module, "__file__", "") and module.__file__.startswith(cwd) and name != "__main__" and time.time() - os.path.getmtime(module.__file__) < 1
+        if getattr(module, "__file__", "") and module.__file__.startswith(cwd) and 
+            name != "__main__" and time.time() - os.path.getmtime(module.__file__) < 1
     ]
     for name, module in extensions:
         if name in bot.extensions:

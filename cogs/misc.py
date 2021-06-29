@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime
 import random
+
+from discord.ext.commands.errors import CommandError
 from utils import CCog, humandate
 
 import discord
@@ -37,15 +39,22 @@ class Misc(CCog):
         await vc.disconnect()
         self.logger.debug(f'{ctx.author} played a soundeffect to {target}.')
     
-    @commands.command('anitor', aliases=['iknowwhatyoudownload', 'torrent', 'peer']) 
+    @commands.command('antitor', aliases=['iknowwhatyoudownload', 'torrent', 'peer']) 
     @commands.cooldown(rate=1000, per=24*60*60*60, type=lambda msg: 0) # global limit 1000/day
     @commands.cooldown(rate=5, per=60, type=commands.BucketType.user)
     async def antitor(self, ctx: Context, ip: str, amount: int = 10):
+        """Shows the torrent history of an ip. Powered by iknowwhatyoudownload.com"""
         async with self.bot.session.get(
             'https://api.antitor.com/history/peer',
             params=dict(ip=ip, contents=min(amount, 20), key=self.config['antitor_key'])
         ) as r:
             data = await r.json()
+        
+        if 'error' in data:
+            raise commands.CommandError(data['message'])
+        if not data['contents']:
+            await ctx.send("That ip has no torrent history, make sure it's valid.")
+            return
         
         geodata = data['geoData']
         embed = discord.Embed(
