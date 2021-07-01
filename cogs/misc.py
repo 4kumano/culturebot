@@ -1,15 +1,15 @@
 import asyncio
-from datetime import datetime
 import random
-
-from discord.ext.commands.errors import CommandError
-from utils import CCog, humandate
+from datetime import datetime
+from utils.discord import get_role
 
 import discord
-from discord import Member, TextChannel
-from discord.ext import commands
-from discord.ext.commands import Bot, Context
 import humanize
+from discord import Member, TextChannel, User
+from discord.ext import commands
+from discord.ext.commands import Context
+from utils import CCog, get_webhook, humandate
+
 
 class Misc(CCog):
     """General miscalenious commands to mess around."""
@@ -73,8 +73,6 @@ class Misc(CCog):
                 inline=False
             )
         await ctx.send(embed=embed)
-        if data["hasChildPorno"]:
-            await ctx.send("This person has downloaded child porn, please report them to authorities!")
     
     # ============================================================
     # random commands
@@ -104,6 +102,17 @@ class Misc(CCog):
 
         toss = random.random() > 0.5
         await ctx.send(f"Landed on {['Heads', 'Tails'][toss]}" + (f": {[heads,tails][toss]}" if heads else ''))
+    
+    # ============================================================
+    # commands that use discord features
+    @commands.command()
+    @commands.guild_only()
+    async def mimic(self, ctx: Context, user: User, *, message: str):
+        """Sends a webhook message that looks like a user sent it."""
+        await ctx.message.delete()
+        webhook = await get_webhook(ctx.channel) # type: ignore
+        msg = await webhook.send(message, username=user.display_name, avatar_url=user.avatar_url)
+
     
     # ============================================================
     # commands admins can use to mess with members
@@ -138,17 +147,18 @@ class Misc(CCog):
     @commands.command('fakeban')
     @commands.bot_has_permissions(manage_channels=True, manage_messages=True)
     @commands.has_guild_permissions(manage_channels=True)
-    @commands.cooldown(1, 300, commands.BucketType.guild)
-    async def fake_ban(self, ctx: Context, target: Member):
+    @commands.cooldown(1, 30, commands.BucketType.guild)
+    async def fake_ban(self, ctx: Context, target: Member, seconds: int = 120):
         """Fake bans a member by removing their access to the all channels
         
         Beware: this will cause all permission overwrites to be cleared for them.
         """
         await ctx.message.delete()
-        for channel in target.guild.channels:
-            if channel.category and channel.permissions_synced:
-                channel = channel.category
-            await channel.set_permissions(target, view_channel=False)
+        overwrite = discord.PermissionOverwrite(
+            view_channel=False
+        )
+        role = await get_role(target.guild, 'banned', overwrite=overwrite)
+        await target.add_roles(role)
         
         msg = await ctx.send(f'Banned {target}')
         self.logger.debug(f'{ctx.author} fakebanned {target}.')
@@ -157,16 +167,13 @@ class Misc(CCog):
             await self.bot.wait_for(
                 'reaction_add', 
                 check=lambda r,u: str(r) == '↩️' and u == ctx.author,
-                timeout=120
+                timeout=max(seconds, 600)
             )
         except asyncio.TimeoutError:
             pass
         
         await msg.clear_reactions()
-        for channel in target.guild.channels:
-            if channel.category and channel.permissions_synced:
-                channel = channel.category
-            await channel.set_permissions(target, overwrite=None)
+        await target.remove_roles(role)
         
 
 

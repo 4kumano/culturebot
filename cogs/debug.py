@@ -8,6 +8,7 @@ from pprint import pprint
 from typing import Any
 
 import discord
+import utils
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 from utils import CCog, chunkify, wrap

@@ -22,6 +22,14 @@ def humandate(dt: Optional[datetime]) -> str:
         return "unknown"
     return dt.strftime("%a, %b %d, %Y %H:%M %p")
 
+def humandelta(delta: timedelta) -> str:
+    s = int(delta.total_seconds())
+    m,s = divmod(s, 60)
+    h,m = divmod(m, 60)
+    d,h = divmod(h, 24)
+    
+    return (f"{d}d" if d else '') + (f"{h}h" if h else '') + f"{m}min {s}s"
+
 def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) -> datetime:
     """Converts a random utc datetime into a correct local timezone aware datetime"""
     ts = dt.timestamp()

@@ -1,11 +1,12 @@
 import difflib
+import importlib
 import os
 import random
 import sys
 import textwrap
-import importlib
 import time
 import traceback
+from datetime import datetime
 
 import aiohttp
 import discord
@@ -14,16 +15,21 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from pretty_help import PrettyHelp
 
-from utils import chunkify, confirm, report_bug, config, logger
+from utils import chunkify, config, logger, report_bug
 
+__all__ = ['bot']
 
 class CBot(commands.Bot):
     __slots__ = ()
 
     DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == "DEBUG"
     config = config
+    start_time = datetime.now()
     session: aiohttp.ClientSession
     help_command: commands.HelpCommand
+    
+    def run(self, *, reconnect: bool = True) -> None:
+        super().run(self.config["bot"]["token"], bot=True, reconnect=reconnect)
 
     async def start(self, *args, **kwargs) -> None:
         """Starts a bot and all misc tasks"""
@@ -48,6 +54,7 @@ class CBot(commands.Bot):
         await bot.process_commands(after)
 
     async def on_command_error(self, ctx: Context, error: Exception):
+        traceback.print_exception(type(error), error, error.__traceback__)
         if isinstance(error, commands.CommandInvokeError):
             e = error.original
             if await bot.is_owner(ctx.author):
@@ -107,18 +114,6 @@ async def before_invoke(ctx: Context):
     content = textwrap.shorten(ctx.message.content, 80, placeholder="...")
     logger.debug(f"g:{g}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
 
-for file in os.listdir("./cogs"):
-    if file[0] == "_":
-        continue
-    extension = os.path.splitext(file)[0]
-    try:
-        bot.load_extension(f"cogs.{extension}")
-        print(f"Loaded extension '{extension}'")
-    except Exception as e:
-        exception = traceback.format_exc()
-        logger.error(f"Failed to load extension {extension}\n{exception}")
-
-
 @tasks.loop(seconds=60, reconnect=True)
 async def update_hentai_presence():
     await bot.wait_until_ready()
@@ -159,5 +154,13 @@ async def check_for_update():
             else:
                 print(f"Reloaded {name}")
 
-
-bot.run(config["bot"]["token"])
+for file in os.listdir("./cogs"):
+    if file[0] == "_":
+        continue
+    extension = os.path.splitext(file)[0]
+    try:
+        bot.load_extension(f"cogs.{extension}")
+        print(f"Loaded extension '{extension}'")
+    except Exception as e:
+        exception = traceback.format_exc()
+        logger.error(f"Failed to load extension {extension}\n{exception}")

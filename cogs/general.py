@@ -1,10 +1,11 @@
 import time
+from datetime import datetime
 
 import discord
-from discord import Forbidden
+from discord import Guild
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
-from utils import CCog, config
+from discord.ext.commands import Context
+from utils import CCog, humandate, humandelta
 
 start_time = time.time()
 
@@ -17,25 +18,29 @@ class General(CCog, name="general"):
 
         Stuff like the author.
         """
+        app = await self.bot.application_info()
         embed = discord.Embed(
             title="Culture bot.",
-            description="A multi-purpose bot made by sadru#1323, contains random features I decided to add on a whim.\n"
+            description=f"A multi-purpose bot made by {app.owner}, contains random features I decided to add on a whim.\n"
                         "This bot is made to not have any databases, meaning every user and guld is anonymous to it.",
             color=0x42F56C
         ).set_thumbnail(
             url=self.bot.user.avatar_url
+        ).set_author(
+            name=self.bot.user.name,
+            icon_url=self.bot.user.avatar_url
         ).add_field(
             name="Owner:",
-            value="sadru#1323"
+            value=app.owner.mention
         ).add_field(
             name="Prefix:",
-            value=config['bot']['prefix']
+            value=f"`{self.bot.config['bot']['prefix']}` or {self.bot.user.mention}"
         ).add_field(
-            name="Made with:",
-            value="Python"
+            name="Source code (python):",
+            value="[thesadru/culturebot](https://github.com/thesadru/culturebot)"
         ).add_field(
             name="Uptime:",
-            value=time.time() - start_time
+            value=f"{humandelta(datetime.now() - self.bot.start_time)} (since {humandate(self.bot.start_time)})"
         ).set_footer(
             text=f"requested by {ctx.message.author}",
             icon_url=ctx.message.author.avatar_url
@@ -48,13 +53,13 @@ class General(CCog, name="general"):
         await ctx.send(f"Pong! :ping_pong: ({self.bot.latency*1000:.2f}ms)")
 
     @commands.command(name="invite")
-    async def invite(self, ctx: Context):
+    async def invite(self, ctx: Context, guild: Guild = None):
         """Get the invite link of the bot to be able to invite it.
 
         Sends you the invite link in DMs.
         """
         app = await self.bot.application_info()
-        url = discord.utils.oauth_url(app.id, discord.Permissions(administrator=True), )
+        url = discord.utils.oauth_url(app.id, discord.Permissions(2046684374), guild)
         await ctx.send(f"Invite me by clicking here: {url}")
             
 

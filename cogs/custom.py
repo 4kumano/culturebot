@@ -1,7 +1,7 @@
 import discord
 from discord.channel import TextChannel
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
+from discord.ext.commands import Context
 from discord.member import Member
 from discord.message import Message
 
@@ -22,13 +22,15 @@ class BB(CCog, name="Belle's Battleground"):
     @commands.Cog.listener()
     async def on_message(self, message: Message):
         """Basically just aura"""
-        if message.guild and message.guild.id == self.guild_id and message.mentions:
-            if any(i in message.content.lower() for i in ("thanks", "thank you")):
-                await message.add_reaction("👍")
-                await message.add_reaction("❌")
+        if message.guild is None or message.guild.id != self.guild_id :
+            return
+        
+        if message.mentions and any(i in message.content.lower() for i in ("thanks", "thank you")):
+            await message.add_reaction("👍")
+            await message.add_reaction("❌")
 
     @commands.group(invoke_without_command=True)
-    @commands.check(lambda ctx: bool(ctx.guild and ctx.guild.id == guild_id))
+    @commands.check(lambda ctx: bool(ctx.guild and ctx.guild.id == 842788736008978504))
     async def bb(self, ctx: Context):
         """Manages links on Belle's Battleground"""
         await ctx.send("Please either `add` or `remove` a link")
