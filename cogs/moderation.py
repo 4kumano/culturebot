@@ -3,17 +3,14 @@ from datetime import datetime, timedelta
 from typing import Union
 
 import discord
-from discord import Guild, Member, Message, Role, TextChannel
+from discord import Member, Message, Role, TextChannel
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
+from discord.ext.commands import Context
+from utils import CCog, get_muted_role
 
 
-class Moderation(commands.Cog, name="moderation"):
+class Moderation(CCog, name="moderation"):
     """Moderation commands and shit"""
-
-    def __init__(self, bot: Bot):
-        self.bot = bot
-
     @commands.command('purge')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
@@ -48,24 +45,6 @@ class Moderation(commands.Cog, name="moderation"):
                 check=lambda m: m.author == user,
                 after=datetime.now() - timedelta(days=days))
         await ctx.send(f"Deleted {len(deleted) - 1} messages.", delete_after=1)
-    
-    async def get_muted_role(self, guild: Guild) -> Role:
-        """Returns the muted role or creates one."""
-        role = discord.utils.find(lambda r: r.name.lower() == 'muted', guild.roles)
-        
-        if role is None:
-            role = await guild.create_role(name='muted')
-        # update mute perms
-        overwrite = discord.PermissionOverwrite(
-            send_messages=False,
-            add_reactions=False
-        )
-        for channel in guild.text_channels:
-            if channel.category and channel.permissions_synced:
-                channel = channel.category
-            await channel.set_permissions(role, overwrite=overwrite)
-        
-        return role
 
     @commands.command('mute')
     @commands.has_permissions(manage_messages=True)
@@ -75,10 +54,12 @@ class Moderation(commands.Cog, name="moderation"):
 
         They will not be able to speak until they are unmuted.
         """
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage()
         if member.guild_permissions.administrator:
             await ctx.send('Cannot mute an admin')
             return
-        role = await self.get_muted_role(ctx.guild) # type: ignore
+        role = await get_muted_role(ctx.guild)
         await member.add_roles(role, reason=reason)
         await ctx.send(f'Muted {member}')
 
@@ -87,7 +68,9 @@ class Moderation(commands.Cog, name="moderation"):
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self, ctx: Context, member: Member):
         """Unmutes a member from all channels."""
-        role = await self.get_muted_role(ctx.guild) # type: ignore
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage()
+        role = await get_muted_role(ctx.guild)
         if role not in member.roles:
             await ctx.send(f"{member} is not currently muted.")
             return
