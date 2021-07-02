@@ -93,7 +93,9 @@ async def discord_choice(
 
     try:
         reaction, _ = await bot.wait_for(
-            "reaction_add", check=lambda r, u: (str(r) in reactions or str(r) == cancel) and u == user, timeout=timeout
+            "reaction_add", 
+            check=lambda r, u: (str(r) in reactions or str(r) == cancel) and u == user, 
+            timeout=timeout
         )
     except asyncio.TimeoutError:
         if delete_after_timeout:
@@ -114,8 +116,9 @@ async def discord_choice(
 async def discord_input(bot: Bot, user: Union[User, Member], channel: TextChannel, timeout: int = 60) -> Optional[Message]:
     try:
         return await bot.wait_for(
-            "message", check=lambda m: m.author == user and m.channel == channel, timeout=timeout
+            "message", 
+            check=lambda m: m.author == user and m.channel == channel, 
+            timeout=timeout
         )
     except asyncio.TimeoutError:
         return None
-    

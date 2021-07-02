@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from typing import Iterable, TypeVar, Union
+from typing import Iterable, Union
 
 from discord import Message
 from discord.abc import Messageable
-
-T = TypeVar("T")
-
 
 def wrap(*string: str, lang: str = "") -> str:
     """Wraps a string in codeblocks."""
@@ -51,6 +48,6 @@ def chunkify(string: Union[str, Iterable[str]], max_size: int = 1980, newlines: 
     return chunks
 
 
-async def send_chunks(destination: Messageable, string: str, wrapped: bool = False) -> list[Message]:
+async def send_chunks(destination: Messageable, string: Union[str, Iterable[str]], wrapped: bool = False) -> list[Message]:
     """Sends a long string to a channel"""
     return [await destination.send(chunk) for chunk in chunkify(string, wrapped=wrapped)]

@@ -116,6 +116,23 @@ class Moderation(CCog, name="moderation"):
             await channel.set_permissions(role, overwrite=None)
         
         await ctx.send(f':unlock: Unlocked {channel.mention}')
+    
+    @commands.command()
+    @commands.has_permissions(manage_channels=True)
+    @commands.bot_has_permissions(manage_channels=True)
+    async def cleanup(self, ctx: Context):
+        """Goes through every channel and cleans up permissions"""
+        assert ctx.guild is not None
+        # cleanup permissions
+        for channel in ctx.guild.channels:
+            clean = {target:overwrite for target, overwrite in channel.overwrites.items() if not overwrite.is_empty()}
+            if clean == channel.overwrites:
+                continue # don't make extra requests
+            
+            await channel.edit(overwrites=clean)
+            await ctx.send(f"Cleaned {channel.mention}")
+        await ctx.send("Cleanup complete")
+                
 
 
 def setup(bot):

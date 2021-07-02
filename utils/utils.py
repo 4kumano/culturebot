@@ -3,19 +3,24 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from asyncio.tasks import FIRST_COMPLETED, Task
+from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from itertools import repeat
-from typing import Any, Callable, Coroutine, Iterable, Iterator, Optional, TypeVar, Union
+from typing import *  # type: ignore
+
+from typing_extensions import TypeAlias
 
 import discord
 from discord.ext import commands
-from discord.ext.commands import Context
+from discord.ext.commands import Bot, Context
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
+
+_Event: TypeAlias = Union[str, tuple[str, Optional[Callable[..., bool]]]]
 
 def humandate(dt: Optional[datetime]) -> str:
     if dt is None:
@@ -24,11 +29,11 @@ def humandate(dt: Optional[datetime]) -> str:
 
 def humandelta(delta: timedelta) -> str:
     s = int(delta.total_seconds())
-    m,s = divmod(s, 60)
-    h,m = divmod(m, 60)
-    d,h = divmod(h, 24)
-    
-    return (f"{d}d" if d else '') + (f"{h}h" if h else '') + f"{m}min {s}s"
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
+    d, h = divmod(h, 24)
+
+    return (f"{d}d" if d else "") + (f"{h}h" if h else "") + f"{m}min {s}s"
 
 def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) -> datetime:
     """Converts a random utc datetime into a correct local timezone aware datetime"""
@@ -69,9 +74,41 @@ def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool 
 
     return commands.check(predicate)
 
+
 def repeat_once(first: T1, rest: T2 = '\u200b') -> Iterator[Union[T1, T2]]:
     yield first
     yield from repeat(rest)
 
 def zip_once(iterable: Iterable[T], first: T1, rest: T2 = '\u200b') -> Iterator[tuple[T, Union[T1, T2]]]:
     yield from zip(iterable, repeat_once(first, rest))
+
+
+async def _wait_for_many(
+    bot: Bot,
+    events: Iterable[_Event],
+    timeout: Optional[int] = None,
+    return_when: str = ALL_COMPLETED,
+) -> set[Task]:
+    """Waits for multiple events"""
+    events = [(e, None) if isinstance(e, str) else (e[0], e[1]) for e in events]
+    futures = [
+        bot.loop.create_task(bot.wait_for(event, check=check), name=event) 
+        for event, check in events
+    ]
+    done, pending = await asyncio.wait(futures, loop=bot.loop, timeout=timeout, return_when=return_when)
+    for task in pending:
+        task.cancel()
+    return done
+
+async def wait_for_any(bot: Bot, *events: _Event, timeout: int = None) -> tuple[Optional[str], Optional[Any]]:
+    """Waits for the first event to complete"""
+    tasks = await _wait_for_many(bot, events, timeout=timeout, return_when=FIRST_COMPLETED)
+    if not tasks:
+        return None, None
+    task = tasks.pop()
+    return task.get_name(), await task
+
+async def wait_for_all(bot: Bot, *events: _Event, timeout: int = None) -> dict[str, Any]:
+    """Waits for the all event to complete"""
+    tasks = await _wait_for_many(bot, events, timeout=timeout, return_when=ALL_COMPLETED)
+    return {task.get_name(): await task for task in tasks}

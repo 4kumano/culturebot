@@ -46,6 +46,8 @@ class Debug(CCog, name='debug'):
                 self.last_return = ret
                 stdout += '\n' + repr(ret)
             return stdout
+        elif ret:
+            return repr(ret)
         
         try:
             ret = eval(code, env)

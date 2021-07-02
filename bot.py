@@ -15,7 +15,7 @@ from discord.ext import commands, tasks
 from discord.ext.commands import Context
 from pretty_help import PrettyHelp
 
-from utils import chunkify, config, logger, report_bug
+from utils import config, logger, report_bug, send_chunks
 
 __all__ = ['bot']
 
@@ -24,6 +24,7 @@ class CBot(commands.Bot):
 
     DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == "DEBUG"
     config = config
+    logger = logger
     start_time = datetime.now()
     session: aiohttp.ClientSession
     help_command: commands.HelpCommand
@@ -49,18 +50,14 @@ class CBot(commands.Bot):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
 
     async def on_message_edit(self, before: Message, after: Message):
-        if after.author.bot:
-            return
         await bot.process_commands(after)
 
     async def on_command_error(self, ctx: Context, error: Exception):
-        traceback.print_exception(type(error), error, error.__traceback__)
         if isinstance(error, commands.CommandInvokeError):
             e = error.original
             if await bot.is_owner(ctx.author):
                 tb = traceback.format_exception(type(error), error, error.__traceback__)
-                for chunk in chunkify(tb, newlines=True, wrapped=True):
-                    await ctx.send(chunk)
+                await send_chunks(ctx, tb, wrapped=True)
                 return
 
             await ctx.send("We're sorry, something went wrong. This error has been reported to the owner.")
@@ -149,6 +146,7 @@ async def check_for_update():
         else:
             try:
                 importlib.reload(module)
+                importlib.reload(sys.modules['bot'])
             except Exception as e:
                 print(f"Could not reload {name}: {e}")
             else:
