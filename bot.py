@@ -1,3 +1,4 @@
+import contextlib
 import difflib
 import importlib
 import os
@@ -107,9 +108,8 @@ async def before_invoke(ctx: Context):
     cmd_path = ctx.command.full_parent_name.replace(" ", ".")
     command = (cmd_path + "." if cmd_path else "") + ctx.command.name
 
-    g = ctx.guild.id if ctx.guild else '0'
     content = textwrap.shorten(ctx.message.content, 80, placeholder="...")
-    logger.debug(f"g:{g}/c:{ctx.channel.id}/u:{ctx.author.id}/m:{ctx.message.id} - {command} - \"{content}\"")
+    logger.debug(f"{ctx.channel.id}/{ctx.message.id} - {command} - \"{content}\"")
 
 @tasks.loop(seconds=60, reconnect=True)
 async def update_hentai_presence():
@@ -146,7 +146,7 @@ async def check_for_update():
         else:
             try:
                 importlib.reload(module)
-                importlib.reload(sys.modules['bot'])
+                importlib.reload(sys.modules[__name__])
             except Exception as e:
                 print(f"Could not reload {name}: {e}")
             else:

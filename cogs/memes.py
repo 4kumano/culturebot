@@ -1,3 +1,4 @@
+import asyncio
 import io
 import os
 import random
@@ -130,13 +131,13 @@ class PyDrive:
 
 @asyncify
 @LoadAuth
-def _download_file(file: GoogleDriveFile, **kwargs) -> Optional[File]:
+def _download_file(file: GoogleDriveFile) -> Optional[File]:
     """Downloads a pydrive file object and returns a discord file object"""
     try:
         content = io.BytesIO(file._DownloadFromUrl(file['downloadUrl']))
     except ApiRequestError:
         return None
-    return File(content, file['title'], **kwargs)
+    return File(content, file['title'])
 
 class Memes(CCog, name="memes"):
     """A utility cog for reposting memes."""
@@ -161,7 +162,7 @@ class Memes(CCog, name="memes"):
 
     @commands.command('meme', aliases=['randommeme'])
     @commands.cooldown(2, 1, commands.BucketType.channel)
-    async def meme(self, ctx: Context):
+    async def meme(self, ctx: Context, amount: int = 1):
         """Sends a random meme from the owner's meme folder.
 
         Make take up to 1s to upload the file when the bot 
@@ -170,10 +171,12 @@ class Memes(CCog, name="memes"):
         If an amount is set then the bot sends that many memes, max is 10.
         """
         await ctx.trigger_typing()
-        file = await _download_file(random.choice(self._memes))
-        if file is None:
+        memes = random.sample(self._memes, k=min(amount, 10))
+        g = (_download_file(meme) for meme in memes)
+        files = [file for file in await asyncio.gather(*g) if file is not None]
+        if not files:
             raise commands.CommandError("There are too many memes being requested right now, please wait a second")
-        await ctx.send(file=file)
+        await ctx.send(files=files)
 
     @commands.command('repost', aliases=['memerepost', 'repostmeme'])
     async def repost(self, ctx: Context, channel: TextChannel = None):
