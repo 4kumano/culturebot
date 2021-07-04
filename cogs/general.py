@@ -61,7 +61,19 @@ class General(CCog, name="general"):
         app = await self.bot.application_info()
         url = discord.utils.oauth_url(app.id, discord.Permissions(2046684374), guild)
         await ctx.send(f"Invite me by clicking here: {url}")
-            
+    
+    @commands.command()
+    async def prefix(self, ctx: Context, prefix: str = None):
+        """Set the prefix for the current guild"""
+        if prefix:
+            if ctx.guild is None:
+                raise commands.NoPrivateMessage("You cannot set prefixes outside a server")
+            if not ctx.channel.permissions_for(ctx.author).manage_guild: # type: ignore
+                raise commands.MissingPermissions(['manage_guild'])
+            await ctx.send("This bot doesn't have a database, how do you expect me to change a prefix :neutral_face: ")
+            return
+        prefixes = ', '.join(f"`{prefix}`" for prefix in await self.bot.get_guild_prefix(ctx.guild))
+        await ctx.send(f'Prefixes for {ctx.guild}: {prefixes}')
 
 def setup(bot):
     bot.add_cog(General(bot))

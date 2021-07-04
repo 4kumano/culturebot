@@ -197,8 +197,6 @@ class NSFW(CCog, name='nsfw'):
     @commands.is_nsfw()
     async def hanime(self, ctx: Context, *, query: str = ''):
         """Searches hanime for hentai"""
-        if query == '':
-            return await self.hanimerandom.invoke(ctx)
         data = await self.hanime_search(query)
         if len(data) == 0:
             await ctx.send(f"No hentai found for query `{query}`")

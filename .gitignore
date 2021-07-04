@@ -2,6 +2,7 @@
 __pycache__
 config.cfg
 # misc
+prefixes.json
 logs/
 assets/*
 _base_cog.py
