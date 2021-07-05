@@ -1,6 +1,7 @@
 import asyncio
 import random
 from datetime import datetime
+from typing import Union
 from utils.discord import get_role
 
 import discord
@@ -107,7 +108,7 @@ class Misc(CCog):
     # commands that use discord features
     @commands.command()
     @commands.guild_only()
-    async def mimic(self, ctx: Context, user: User, *, message: str):
+    async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str):
         """Sends a webhook message that looks like a user sent it."""
         await ctx.message.delete()
         webhook = await get_webhook(ctx.channel) # type: ignore

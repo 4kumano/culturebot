@@ -6,12 +6,13 @@ from datetime import datetime
 from typing import Mapping, Optional, TypeVar, Union
 
 import discord
-from discord import Member, Message, NotFound, TextChannel, User
+from discord import Member, Message, NotFound, User
+from discord.abc import Messageable
 from discord.ext.commands import Bot, Context
 
 from .config import config
 from .formatting import chunkify
-from .utils import zip_once
+from .tools import zip_once
 
 T = TypeVar("T")
 
@@ -113,8 +114,11 @@ async def discord_choice(
 
     return reactions[str(reaction)]
 
-async def discord_input(bot: Bot, user: Union[User, Member], channel: TextChannel, timeout: int = 60) -> Optional[Message]:
+async def discord_input(bot: Bot, user: Union[User, Member], channel: Messageable, timeout: int = 60) -> Optional[Message]:
+    if isinstance(channel, (User, Member)):
+        channel = channel.dm_channel or await channel.create_dm()
     try:
+        print("Waiting for: ", user, channel)
         return await bot.wait_for(
             "message", 
             check=lambda m: m.author == user and m.channel == channel, 

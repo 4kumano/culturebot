@@ -1,8 +1,9 @@
-discord.py
 aiohttp
-spotipy
-mcstatus
-humanize
-pydrive
+cachetools
+discord.py
 discord-pretty-help
 genshinstats
+humanize
+mcstatus
+pydrive
+spotipy

@@ -149,8 +149,6 @@ class Memes(CCog, name="memes"):
 
     def cog_unload(self):
         self.update_memes.cancel()
-        if not self.bot.session.closed:
-            self.bot.loop.create_task(self.bot.session.close())
 
     @tasks.loop(hours=6)
     @asyncify

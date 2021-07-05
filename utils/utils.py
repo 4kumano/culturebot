@@ -1,23 +1,23 @@
+"""General utility functions that don't fit elsewhere"""
 from __future__ import annotations
 
 import asyncio
 import re
 import time
 from asyncio.tasks import ALL_COMPLETED, FIRST_COMPLETED, Task
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from functools import partial
-from itertools import repeat
 from typing import *  # type: ignore
 
 from typing_extensions import TypeAlias
+
+from discord.raw_models import RawReactionActionEvent
+
 if TYPE_CHECKING: # 3.10 is not out yet techincally
     from typing_extensions import ParamSpec
 else:
     ParamSpec = lambda *_,**__: None
 
 import discord
-from discord import Member, Reaction, User
 from discord.ext import commands
 from discord.ext.commands import Bot, Context
 
@@ -28,9 +28,11 @@ P = ParamSpec("P")
 
 _Event: TypeAlias = Union[str, tuple[str, Optional[Callable[..., bool]]]]
 
-def humandate(dt: Optional[datetime]) -> str:
+def humandate(dt: Union[datetime, str, None]) -> str:
     if dt is None:
         return "unknown"
+    elif isinstance(dt, str):
+        dt = datetime.fromisoformat(dt)
     return dt.strftime("%a, %b %d, %Y %H:%M %p")
 
 def humandelta(delta: timedelta) -> str:
@@ -54,17 +56,6 @@ def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) ->
     dt += delta
     return dt if naive else dt.astimezone(tz)
 
-async_executor = ThreadPoolExecutor()
-def asyncify(func: Callable[P, T]) -> Callable[P, Coroutine[Any, Any, T]]:
-    """Turn a normal function into a coroutine.
-    We don't use an awaitable because of type restrictions in dpy"""
-    loop = asyncio.get_event_loop()
-
-    async def wrapper(*args, **kwargs):
-        return await loop.run_in_executor(async_executor, partial(func, *args, **kwargs))
-
-    return wrapper
-
 def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool = True):
     def predicate(ctx: Context):
         channel = ctx.channel
@@ -79,15 +70,6 @@ def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool 
         raise commands.CheckFailure("This channel is not a bot channel.")
 
     return commands.check(predicate)
-
-
-def repeat_once(first: T1, rest: T2 = '\u200b') -> Iterator[Union[T1, T2]]:
-    yield first
-    yield from repeat(rest)
-
-def zip_once(iterable: Iterable[T], first: T1, rest: T2 = '\u200b') -> Iterator[tuple[T, Union[T1, T2]]]:
-    yield from zip(iterable, repeat_once(first, rest))
-
 
 async def _wait_for_many(
     bot: Bot,
@@ -119,8 +101,8 @@ async def wait_for_all(bot: Bot, *events: _Event, timeout: int = None) -> dict[s
     tasks = await _wait_for_many(bot, events, timeout=timeout, return_when=ALL_COMPLETED)
     return {task.get_name(): await task for task in tasks}
 
-async def wait_for_reaction(bot: Bot, check: Callable[[Reaction, Union[User, Member]], bool] = None, timeout: int = None) -> Optional[tuple[Reaction, Union[User, Member]]]:
+async def wait_for_reaction(bot: Bot, check: Callable[[RawReactionActionEvent], bool] = None, timeout: int = None) -> Optional[RawReactionActionEvent]:
     """Waits for a reaction add or remove"""
-    events = [(event, check) for event in ('reaction_add', 'reaction_remove')]
+    events = [(event, check) for event in ('raw_reaction_add', 'raw_reaction_remove')]
     name, data = await wait_for_any(bot, *events, timeout=timeout)
     return data

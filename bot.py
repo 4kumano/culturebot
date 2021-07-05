@@ -71,8 +71,8 @@ class CBot(commands.Bot):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
 
     async def on_message_edit(self, before: Message, after: Message):
-        if after.author is None:
-            return # I don't really understand this bug
+        if self.user is None:
+            return
         await bot.process_commands(after)
 
     async def on_command_error(self, ctx: Context, error: Exception):
