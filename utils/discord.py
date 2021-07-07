@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Iterable, Sequence
+from typing import AsyncIterable, TYPE_CHECKING, Iterable, Union
 
 import discord
 from discord import Embed, Guild, PermissionOverwrite, Permissions, Role, TextChannel
 from discord.abc import Messageable
 from discord.ext.commands.context import Context
 
-from .tools import bicycle
+from .tools import Zipper
 
 if TYPE_CHECKING:
     from discord.webhook import _AsyncWebhook  # discord.py-stubs
@@ -58,58 +58,19 @@ async def _try_delete_reaction(message: discord.Message, payload: discord.RawRea
         pass
 
 page_left, page_right, remove = "◀", "▶", "❌"
-# async def send_pages(ctx: Context, destination: Messageable, embeds: Sequence[Embed], timeout: int = 60):
-#     """Send multiple embeds as pages"""
-#     message = await destination.send(embed=embeds[0])
-#     if len(embeds) == 1:
-#         return
+async def send_pages(
+    ctx: Context, 
+    destination: Messageable, 
+    pages: Union[Iterable[Embed], AsyncIterable[Embed]],
+    anext: bool = False,
+    timeout: int = 60
+):
+    """Send multiple embeds as pages, supports iterators
     
-#     index = 0
-
-#     for reaction in (page_left, page_right, remove):
-#         asyncio.create_task(message.add_reaction(reaction))
-
-#     while True:
-#         try:
-#             payload = await ctx.bot.wait_for(
-#                 'raw_reaction_add',
-#                 check=lambda payload: payload.user_id != ctx.bot.user.id and message.id == payload.message_id,
-#                 timeout=timeout
-#             )
-#         except asyncio.TimeoutError:
-#             await message.clear_reactions()
-#             return
-        
-#         del_task = asyncio.create_task(_try_delete_reaction(message, payload))
-        
-#         if payload.user_id != ctx.author.id:
-#             continue
-        
-#         r = str(payload.emoji)
-#         if r == remove:
-#             del_task.cancel()
-#             await message.delete()
-#             return
-#         elif r == page_right:
-#             index += 1
-#         elif r == page_left:
-#             index -= 1
-#         else:
-#             continue
-#         index = index % len(embeds)
-#         await message.edit(embed=embeds[index])
-
-
-async def send_pages(ctx: Context, destination: Messageable, embeds: Iterable[Embed], timeout: int = 60):
-    """Send multiple embeds as pages, supports iterators"""
-    index = 0
-    it = iter(embeds)
-    if isinstance(embeds, Sequence):
-        depleted = True
-    else:
-        embeds = [next(it)]
-        depleted = False
-    message = await destination.send(embed=embeds[0])
+    If anext is true the items will be gotten asynchronously.
+    """
+    zipper = Zipper(pages)
+    message = await destination.send(embed=zipper.curr)
 
     for reaction in (page_left, page_right, remove):
         asyncio.create_task(message.add_reaction(reaction))
@@ -136,21 +97,12 @@ async def send_pages(ctx: Context, destination: Messageable, embeds: Iterable[Em
             await message.delete()
             return
         elif r == page_right:
-            index += 1
-            if depleted:
-                index %= len(embeds)
-                embed = embeds[index]
-            else:
-                embed = next(it, None)
-                if embed is None:
-                    depleted = True
-                    embed = embeds[0]
+            embed = (await zipper.anext() if anext else zipper.next())
         elif r == page_left:
-            if index == 0 and not depleted:
+            try:
+                embed = (await zipper.aprev() if anext else zipper.prev())
+            except IndexError:
                 continue
-            index -= 1
-            index %= len(embeds)
-            embed = embeds[index]
         else:
             continue
         

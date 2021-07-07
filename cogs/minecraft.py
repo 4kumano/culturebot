@@ -49,8 +49,6 @@ class Minecraft(CCog):
             )
         
         status.players.sample = status.players.sample or []
-        if isinstance(status.description, dict):
-            status.description = status.description['text']
         
         if gvp:
             # don't fucking touch this, it's so shit

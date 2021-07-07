@@ -12,7 +12,7 @@ from discord.ext.commands import Context
 from pydrive.auth import GoogleAuth, LoadAuth, RefreshError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
-from utils import CCog, asyncify
+from utils import CCog, coroutine, to_thread
 
 
 class PyDrive:
@@ -129,7 +129,7 @@ class PyDrive:
 
         print(f'Uploaded {len(files)} files')
 
-@asyncify
+@coroutine
 @LoadAuth
 def _download_file(file: GoogleDriveFile) -> Optional[File]:
     """Downloads a pydrive file object and returns a discord file object"""
@@ -151,7 +151,7 @@ class Memes(CCog, name="memes"):
         self.update_memes.cancel()
 
     @tasks.loop(hours=6)
-    @asyncify
+    @coroutine
     def update_memes(self):
         """Updates the meme files"""
         self._memes = [i for i in self.drive.listdir() 
@@ -225,7 +225,7 @@ class Memes(CCog, name="memes"):
     @commands.is_owner()
     async def upload_memes(self, ctx: Context):
         await ctx.send('Console interaction started')
-        await asyncify(self.drive.upload_directory)(self.config['localdir'])
+        await to_thread(self.drive.upload_directory, self.config['localdir'])
 
 def setup(bot):
     bot.add_cog(Memes(bot))

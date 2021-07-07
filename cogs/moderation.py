@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from typing import Union
+from utils.interaction import confirm
 
 import discord
 from discord import Member, Message, Role, TextChannel
@@ -19,13 +20,17 @@ class Moderation(CCog, name="moderation"):
         
         If a message id is passed in, all messages up to the message exclusive will be purged.
         """
-        if not isinstance(ctx.channel, discord.TextChannel):
-            return # type check for dms
+        assert isinstance(ctx.channel, discord.TextChannel)
+        
+        msg = await ctx.send(f"Are you sure you want to delete " + (f'**{limit}** messages in {ctx.channel.mention}' if isinstance(limit, int) else f'all messages up to {limit.id}'))
+        if not await confirm(self.bot, msg, ctx.author):
+            await ctx.send("Cancelled!")
+            return
         
         if isinstance(limit, Message):
             deleted = await ctx.channel.purge(limit=None, after=limit)
         else:
-            deleted = await ctx.channel.purge(limit=limit + 1)
+            deleted = await ctx.channel.purge(limit=limit + 2)
         await ctx.send(f"Deleted {len(deleted)} messages.", delete_after=1)
 
     @commands.command('prune')

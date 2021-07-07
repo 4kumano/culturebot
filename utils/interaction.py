@@ -118,7 +118,6 @@ async def discord_input(bot: Bot, user: Union[User, Member], channel: Messageabl
     if isinstance(channel, (User, Member)):
         channel = channel.dm_channel or await channel.create_dm()
     try:
-        print("Waiting for: ", user, channel)
         return await bot.wait_for(
             "message", 
             check=lambda m: m.author == user and m.channel == channel, 

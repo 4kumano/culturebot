@@ -5,19 +5,24 @@ import spotipy
 from discord.ext import commands, tasks
 from discord.ext.commands import Bot, Context
 from spotipy import CacheFileHandler, SpotifyOAuth
-from utils import CCog, asyncify
+from utils import CCog, coroutine
 
 
 class Spotify(CCog, name="spotify"):
     """Shows what the owner is listening to on spotify"""
-
-    def __init__(self, bot: Bot):
-        self._session = requests.Session()
-        auth = SpotifyOAuth(**self.config, cache_handler=CacheFileHandler('credentials/spotipy_cache.json'))
-        self.spotify = spotipy.Spotify(requests_session=self._session, oauth_manager=auth)
-        self.keep_token_alive.start()
+    _session = requests.Session()
+    
+    def __init__(self, bot):
+        self.spotify = spotipy.Spotify(
+            requests_session=self._session, 
+            oauth_manager=SpotifyOAuth(
+                **self.config, 
+                cache_handler=CacheFileHandler('credentials/spotipy_cache.json')
+            )
+        )
     
     async def init(self):
+        self.keep_token_alive.start()
         try:
             user = await self.bot.loop.run_in_executor(None, self.spotify.me)
         except Exception as e:
@@ -38,7 +43,7 @@ class Spotify(CCog, name="spotify"):
     @commands.command('spotify')
     async def playing(self, ctx: Context):
         """Shows what the owner is currently listening to"""
-        data = await asyncify(self.spotify.currently_playing)()
+        data = await coroutine(self.spotify.currently_playing)()
         if data is None:
             await ctx.send("The user doesn't seem to be currently playing anything")
             return
@@ -63,7 +68,7 @@ class Spotify(CCog, name="spotify"):
         await ctx.send(embed=embed)
     
     @tasks.loop(minutes=59, seconds=15)
-    @asyncify
+    @coroutine
     def keep_token_alive(self):
         """Keep refreshing the access token every <1h
         
