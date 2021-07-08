@@ -49,12 +49,12 @@ class PyDrive:
 
     def upload(self, path: str, filename: str = None) -> GoogleDriveFile:
         """Uploads a file"""
-        # default to None when not updating
-        file = self.find_file(filename) if filename else None
+        filename = filename or os.path.split(path)[1]
+        file = self.find_file(filename)
 
         if file is None:
             file = self.drive.CreateFile()
-            file['title'] = filename or os.path.split(path)[1]
+            file['title'] = filename
             file['parents'] = self._get_parents(self.directory)
 
         file.SetContentFile(path)

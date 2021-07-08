@@ -4,12 +4,11 @@ from typing import Union
 
 import aiohttp
 import discord
-from discord import ClientUser, Emoji, Guild, Member, PartialEmoji, Role, User
+from discord import (ClientUser, Emoji, Guild, Member, Message, PartialEmoji,
+                     Role, User)
 from discord.ext import commands
 from discord.ext.commands import Context
-from discord.message import Message
-from pretty_help import DefaultMenu
-from utils import CCog, humandate, utc_as_timezone
+from utils import CCog, humandate, send_pages, utc_as_timezone
 
 
 class Utility(CCog, name="utility"):
@@ -75,9 +74,9 @@ class Utility(CCog, name="utility"):
     @emojis.command('rename')
     @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
-    async def rename_emoji(self, ctx: Context, emoji: Emoji, name: str):
+    async def rename_emoji(self, ctx: Context, emoji: Emoji, name: str, *roles: Role):
         """Renames an emoji"""
-        await emoji.edit(name=name)
+        await emoji.edit(name=name, roles=list(roles))
         await ctx.send(f'Renamed {emoji}')
     
     @emojis.command('delete', aliases=['remove', 'del'])
@@ -318,8 +317,7 @@ class Utility(CCog, name="utility"):
             )
             embeds.append(embed)
         
-        menu = DefaultMenu()
-        await menu.send_pages(ctx, ctx, embeds)
+        await send_pages(ctx, ctx, embeds)
         
         
 

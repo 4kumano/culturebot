@@ -1,6 +1,7 @@
 import difflib
 import importlib
 import os
+import pkgutil
 import random
 import sys
 import textwrap
@@ -65,7 +66,7 @@ class CBot(commands.Bot):
         prefixes = await self.get_guild_prefix(message.guild) 
         prefixes.append(self.config['bot']['silent_prefix'])
         prefixes.extend(commands.when_mentioned(self, message))
-        return prefixes
+        return sorted(prefixes, key=len, reverse=True)
 
     async def on_ready(self):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
@@ -79,6 +80,9 @@ class CBot(commands.Bot):
         msg = str(error.args[0]) if error.args else ''
         if isinstance(error, commands.CommandInvokeError):
             e = error.original
+            if isinstance(e, NotImplementedError):
+                await ctx.send("This command is not avalible")
+                return
             if await bot.is_owner(ctx.author):
                 tb = traceback.format_exception(type(error), error, error.__traceback__)
                 await send_chunks(ctx, tb, wrapped=True)
@@ -183,13 +187,10 @@ async def check_for_update():
             else:
                 print(f"Reloaded {name}")
 
-for file in os.listdir("./cogs"):
-    if file[0] == "_":
-        continue
-    extension = os.path.splitext(file)[0]
+for m in pkgutil.iter_modules(['cogs']):
     try:
-        bot.load_extension(f"cogs.{extension}")
-        print(f"Loaded extension '{extension}'")
+        bot.load_extension(f"{m.module_finder.path}.{m.name}") # type: ignore
+        print(f"Loaded extension '{m.name}'")
     except Exception as e:
         exception = traceback.format_exc()
-        logger.error(f"Failed to load extension {extension}\n{exception}")
+        logger.error(f"Failed to load extension {m.name}\n{exception}")

@@ -61,7 +61,7 @@ page_left, page_right, remove = "◀", "▶", "❌"
 async def send_pages(
     ctx: Context, 
     destination: Messageable, 
-    pages: Union[Iterable[Embed], AsyncIterable[Embed]],
+    pages: Iterable[Embed],
     anext: bool = False,
     timeout: int = 60
 ):

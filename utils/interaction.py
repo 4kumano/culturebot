@@ -35,10 +35,10 @@ async def report_bug(ctx: Context, error: Exception, description: str = ''):
         icon_url=ctx.author.avatar_url
     )
     
-    for name, chunk in zip_once(chunkify(description, 1000, wrapped=True), 'description'):
+    for chunk, name in zip_once(chunkify(description, 1000, wrapped=True), 'description'):
         embed.add_field(name=name, value=chunk, inline=False)
     
-    for name, chunk in zip_once(chunkify(tb, 1000, wrapped=True), 'traceback'):
+    for chunk, name in zip_once(chunkify(tb, 1000, wrapped=True), 'traceback'):
         embed.add_field(name=name, value=chunk, inline=False)
     
     await channel.send(embed=embed)

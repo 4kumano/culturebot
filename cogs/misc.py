@@ -111,6 +111,9 @@ class Misc(CCog):
     async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str):
         """Sends a webhook message that looks like a user sent it."""
         await ctx.message.delete()
+        if user == ctx.bot.user:
+            await ctx.send(message)
+            return
         webhook = await get_webhook(ctx.channel) # type: ignore
         msg = await webhook.send(message, username=user.display_name, avatar_url=user.avatar_url)
 
@@ -160,6 +163,8 @@ class Misc(CCog):
         )
         role = await get_role(target.guild, 'banned', overwrite=overwrite)
         await target.add_roles(role)
+        roles = [role for role in target.roles if not role.managed and role.id != role.guild.id]
+        await target.remove_roles(*roles)
         
         msg = await ctx.send(f'Banned {target}')
         self.logger.debug(f'{ctx.author} fakebanned {target}.')
@@ -175,6 +180,7 @@ class Misc(CCog):
         
         await msg.clear_reactions()
         await target.remove_roles(role)
+        await target.add_roles(*roles)
         
 
 

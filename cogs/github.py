@@ -1,10 +1,9 @@
 from datetime import datetime
 
-import aiohttp
 import discord
 from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Bot, Context
+from discord.ext.commands import Context
 from utils import CCog
 
 
@@ -49,8 +48,7 @@ class Github(CCog, name="github"):
                 title="github commit",
                 description=f"New commit in [{repo}]({commit['html_url']})",
                 color=0x211F1F,
-                timestamp=datetime.fromisoformat(
-                    commit['commit']['author']['date'][:-1])
+                timestamp=datetime.fromisoformat(commit['commit']['author']['date'][:-1])
             ).set_author(
                 name=commit['author']['login'],
                 url=commit['author']['html_url'],
@@ -67,6 +65,67 @@ class Github(CCog, name="github"):
             await self.channel.send(embed=embed)
             
             self.logger.info(f"Updated github commit {commit['sha']}")
+    
+    @commands.command(usage="<user>[/repo]")
+    async def github(self, ctx: Context, path: str):
+        """Shows info about a github user/repository
+        
+        Provide as "thesadru" or "thesadru/culturebot"
+        """
+        user, _, repo = path.partition('/')
+        if repo:
+            async with self.bot.session.get(
+                f"https://api.github.com/repos/{user}/{repo}",
+                headers={"Authorization": f"token {self.config['token']}"}
+            ) as r:
+                data = await r.json()
+            embed = discord.Embed(
+                title=data['full_name'],
+                description=f"stars: {data['stargazers_count']} forks: {data['forks_count']}\n"
+                            f"language: {data['language']} license: {data['license']['name'] if data['license'] else 'no'}\n"
+                            +(f"homepage: {data['homepage']}" if data['homepage'] else ''),
+                url=data['html_url']
+            ).set_author(
+                name=data['owner']['login'],
+                url=data['owner']['html_url'],
+                icon_url=data['owner']['avatar_url']
+            ).set_thumbnail(
+                url=data['owner']['avatar_url']
+            ).add_field(
+                name="Description",
+                value=data['description']
+            )
+            await ctx.send(embed=embed)
+        else:
+            async with self.bot.session.get(
+                f"https://api.github.com/users/{user}",
+                headers={"Authorization": f"token {self.config['token']}"}
+            ) as r:
+                data = await r.json()
+            embed = discord.Embed(
+                title=f"{data['name']} ({data['login']})",
+                description=f"repos: {data['public_repos']} gists: {data['public_gists']}\n"
+                            f"followers: {data['followers']} following: {data['following']}\n"
+                            f"location: {data['location']}",
+                url=data['html_url']
+            ).set_thumbnail(
+                url=data['avatar_url']
+            ).add_field(
+                name="Bio",
+                value=data['bio']
+            ).add_field(
+                name="Contact",
+                value=''.join([
+                    (f"email: [{data['email']}](mailto:{data['email']})\n" if data['email'] else ''),
+                    (f"twitter: [{data['twitter_username']}](https://twitter.com/{data['twitter_username']})\n" if data['twitter_username'] else ''),
+                    (f"company: {data['company']}\n" if data['company'] else ''),
+                    
+                ]) or 'no contact avalible'
+            ).set_footer(
+                text=f"id: {data['id']}"
+            )
+            await ctx.send(embed=embed)
+        
 
 
 def setup(bot):

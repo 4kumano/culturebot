@@ -1,9 +1,12 @@
 from __future__ import annotations
+from itertools import islice
 
-from typing import Iterable, Union
+from typing import Iterable, Iterator, TypeVar, Union
 
 from discord import Message
 from discord.abc import Messageable
+
+T = TypeVar('T')
 
 def wrap(*string: str, lang: str = "") -> str:
     """Wraps a string in codeblocks."""
@@ -15,8 +18,16 @@ def multiline_join(strings: list[str], sep: str = "", prefix: str = "", suffix: 
     parts = zip(*(str(i).splitlines() for i in strings))
     return "\n".join(prefix + sep.join(i) + suffix for i in parts)
 
+def grouper(iterable: Iterable[T], chunk_size: int) -> Iterator[list[T]]:
+    """Like chunkify but for any iterable"""
+    it = iter(iterable)
+    while True:
+        chunk = list(islice(it, chunk_size))
+        if not chunk:
+            return
+        yield chunk
 
-def chunkify(string: Union[str, Iterable[str]], max_size: int = 1980, newlines: bool = True, wrapped: bool = False) -> list[str]:
+def chunkify(string: Union[str, Iterable[str]], chunk_size: int = 1980, newlines: bool = True, wrapped: bool = False) -> list[str]:
     """Takes in a string or a list of lines and splits it into chunks that fit into a single discord message
 
     You may change the max_size to make this function work for embeds.
@@ -31,16 +42,16 @@ def chunkify(string: Union[str, Iterable[str]], max_size: int = 1980, newlines: 
         chunks = [""]
         for i in string:
             i += "\n"
-            if len(chunks[-1]) + len(i) < max_size:
+            if len(chunks[-1]) + len(i) < chunk_size:
                 chunks[-1] += i
-            elif len(i) > max_size:
+            elif len(i) > chunk_size:
                 # we don't wrap here because the wrapping will be done no matter what
-                chunks.extend(chunkify(i, max_size, newlines=False, wrapped=False))
+                chunks.extend(chunkify(i, chunk_size, newlines=False, wrapped=False))
             else:
                 chunks.append(i)
     else:
         string = string if isinstance(string, str) else "\n".join(string)
-        chunks = [string[i : i + max_size] for i in range(0, len(string), max_size)]
+        chunks = [string[i : i + chunk_size] for i in range(0, len(string), chunk_size)]
 
     if wrapped:
         chunks = [wrap(i) for i in chunks]

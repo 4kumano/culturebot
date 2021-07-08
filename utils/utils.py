@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import re
 import time
-from asyncio.tasks import ALL_COMPLETED, FIRST_COMPLETED, Task
+from asyncio import Task
 from datetime import datetime, timedelta, timezone
 from typing import *  # type: ignore
 
@@ -75,7 +75,7 @@ async def _wait_for_many(
     bot: Bot,
     events: Iterable[_Event],
     timeout: Optional[int] = None,
-    return_when: str = ALL_COMPLETED,
+    return_when: str = 'ALL_COMPLETED',
 ) -> set[Task[Any]]:
     """Waits for multiple events"""
     events = [(e, None) if isinstance(e, str) else (e[0], e[1]) for e in events]
@@ -90,7 +90,7 @@ async def _wait_for_many(
 
 async def wait_for_any(bot: Bot, *events: _Event, timeout: int = None) -> Union[tuple[str, Any], tuple[Literal[''], None]]:
     """Waits for the first event to complete"""
-    tasks = await _wait_for_many(bot, events, timeout=timeout, return_when=FIRST_COMPLETED)
+    tasks = await _wait_for_many(bot, events, timeout=timeout, return_when='FIRST_COMPLETED')
     if not tasks:
         return '', None
     task = tasks.pop()
@@ -98,7 +98,7 @@ async def wait_for_any(bot: Bot, *events: _Event, timeout: int = None) -> Union[
 
 async def wait_for_all(bot: Bot, *events: _Event, timeout: int = None) -> dict[str, Any]:
     """Waits for the all event to complete"""
-    tasks = await _wait_for_many(bot, events, timeout=timeout, return_when=ALL_COMPLETED)
+    tasks = await _wait_for_many(bot, events, timeout=timeout, return_when='ALL_COMPLETED')
     return {task.get_name(): await task for task in tasks}
 
 async def wait_for_reaction(bot: Bot, check: Callable[[RawReactionActionEvent], bool] = None, timeout: int = None) -> Optional[RawReactionActionEvent]:

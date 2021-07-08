@@ -82,30 +82,28 @@ class Zipper(Iterator[T]):
     index: int = 0
     depleted: bool = False 
     
-    def __init__(self, iterable: Union[Iterable[T], AsyncIterable[T]]):
+    def __init__(self, iterable: Iterable[T]):
         if isinstance(iterable, Sequence):
             self.it = iter(())
             self.saved = list(iterable)
-        elif isinstance(iterable, Iterable):
-            self.it = iter(iterable)
-            self.saved = []
+            self.depleted = True
         else:
-            self.it = to_sync_iterator(iterable)
-            self.saved = []
+            self.it = iter(iterable)
+            self.saved = [next(self.it)]
     
     def __repr__(self) -> str:
-        return f"<{type(self).__name__} index={self.index} depleted={self.depleted} saved={self.saved}>"
+        return f"<{type(self).__name__} index={self.index} depleted={self.depleted}>"
 
     @property
     def curr(self) -> T:
-        if self.depleted:
-            self.index %= len(self.saved)
-        elif self.index < 0:
-            self.index = 0
-            raise IndexError("Cannot get the last item of an undepleted zipper")
+        self.index %= len(self.saved)
+        return self.saved[self.index]
+    
+    def next(self) -> T:
+        self.index += 1
         
-        if self.index < len(self.saved):
-            return self.saved[self.index]
+        if self.depleted or self.index < len(self.saved):
+            return self.curr
         
         value = next(self.it, None)
         if value is None:
@@ -115,11 +113,10 @@ class Zipper(Iterator[T]):
         self.saved.append(value)
         return value
     
-    def next(self) -> T:
-        self.index += 1
-        return self.curr
-    
     def prev(self) -> T:
+        if not self.depleted and self.index == 0:
+            raise IndexError("Cannot get the last item of an undepleted zipper")
+        
         self.index -= 1
         return self.curr
     

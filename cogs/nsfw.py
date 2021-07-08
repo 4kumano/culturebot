@@ -7,11 +7,10 @@ from typing import List, Optional, Sequence
 
 import aiohttp
 import discord
-from discord.colour import Colour
+from discord import Colour
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
-from pretty_help import DefaultMenu
-from utils import CCog
+from discord.ext.commands import Context
+from utils import CCog, send_pages
 
 
 class SearchError(Exception):
@@ -112,8 +111,7 @@ class NSFW(CCog, name='nsfw'):
             for post in posts
         ]
         
-        menu = DefaultMenu()
-        await menu.send_pages(ctx, ctx, embeds)
+        await send_pages(ctx, ctx, embeds)
     
     @booru.command('raw')
     async def booru_raw(self, ctx: Context, amount: int = 1, *tags: str):
@@ -220,8 +218,7 @@ class NSFW(CCog, name='nsfw'):
             )
             for hentai in data
         ]
-        menu = DefaultMenu()
-        await menu.send_pages(ctx, ctx, embeds)
+        await send_pages(ctx, ctx, embeds)
     
     @hanime.command('random')
     @commands.is_nsfw()
@@ -242,8 +239,7 @@ class NSFW(CCog, name='nsfw'):
             )
             for i,hentai in enumerate(data, 1)
         ]
-        menu = DefaultMenu()
-        await menu.send_pages(ctx, ctx, embeds)
+        await send_pages(ctx, ctx, embeds)
     
     async def _set_yiff_categories(self) -> None:
         """Sets upp yiff categories, should be called only once"""
