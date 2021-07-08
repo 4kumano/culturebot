@@ -1,7 +1,6 @@
-import asyncio
+import random
 from datetime import datetime
 from itertools import groupby
-import random
 
 import discord
 import genshinstats as gs
@@ -9,7 +8,8 @@ from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 from discord.ext import commands
 from discord.ext.commands import Context
-from utils import CCog, coroutine, discord_input, send_pages, to_thread
+from utils import (CCog, coroutine, discord_input, grouper, send_pages,
+                   to_thread)
 
 GENSHIN_LOGO = "https://yt3.ggpht.com/ytc/AKedOLRtloUOEZcHaRhCYeKyHRg31e54hCcIaVfQ7IN-=s900-c-k-c0x00ffffff-no-rj"
 
@@ -23,7 +23,29 @@ def _item_color(rarity: int = 0) -> int:
     else:
         return 0xffffff # white
 
-class GenshinImpact(CCog):
+def _character_icon(name: str, image: bool = False) -> str:
+    name = name.title().replace('_', ' ')
+    name = {
+        "Amber": "Ambor",
+        "Jean": "Qin",
+        "Noelle": "Noel",
+        "Traveler": "PlayerBoy"
+    }.get(name, name)
+    if image:
+        return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_image/UI_AvatarIcon_{name}@2x.png"
+    else:
+        return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_icon/UI_AvatarIcon_{name}.png"
+
+base = "https://webstatic-sea.hoyolab.com/app/community-game-records-sea/images/"
+abyss_banners = {
+    0:  base + "pc-abyss-bg.dc0c3ac6.png",
+    9:  base + "pc9.1f1920d2.png",
+    10: base + "pc10.b0019d93.png",
+    11: base + "pc11.38507e1e.png",
+    12: base + "pc12.43f28b10.png",
+}
+
+class GenshinImpact(CCog, name='genshin'):
     """Short description"""
     cache = TTLCache(2048, 300)
     icon_cache: dict[int, str] = {}
@@ -32,6 +54,12 @@ class GenshinImpact(CCog):
     
     async def init(self):
         gs.set_cookies(*self.config['cookies'].splitlines())
+        await self.update_users_cache()
+    
+    def _element_emoji(self, element: str) -> discord.Emoji:
+        g = self.bot.get_guild(570841314200125460) or self.bot.guilds[0]
+        e = discord.utils.get(g.emojis, name=element.lower()) or discord.Emoji()
+        return e
     
     @cached(cache, key=lambda self, uid, **_: hashkey(uid))
     def _get_user_stats(self, uid: int, cookie = None):
@@ -64,21 +92,6 @@ class GenshinImpact(CCog):
                 continue
             self.users_cache[uid] = card
     
-    @staticmethod
-    def _get_icon(name: str, image: bool = False) -> str:
-        name = name.title().replace('_', ' ')
-        name = {
-            "Amber": "Ambor",
-            "Jean": "Qin",
-            "Noelle": "Noel",
-            "Traveler": "PlayerBoy"
-        }.get(name, name)
-        if image:
-            return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_image/UI_AvatarIcon_{name}@2x.png"
-        else:
-            return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_icon/UI_AvatarIcon_{name}.png"
-        
-    
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
     async def genshin(self, ctx: Context, user: int):
@@ -90,6 +103,8 @@ class GenshinImpact(CCog):
             await ctx.send(e.msg)
             return
 
+        pages = []
+        
         stats_embed = discord.Embed(
             colour=0xffffff,
             title=f"Info about {user}",
@@ -103,21 +118,7 @@ class GenshinImpact(CCog):
                 name=field.replace('_', ' '),
                 value=value
             )
-        
-        character_embed = discord.Embed(
-            colour=0xffffff,
-            title=f"Info about {user}",
-            description="Basic character info (only first 15)"
-        ).set_footer(
-            text="Powered by genshinstats",
-            icon_url=GENSHIN_LOGO
-        )
-        characters = sorted(data['characters'], key=lambda x: -x['level'])
-        for char in characters[:15]:
-            character_embed.add_field(
-                name=f"{char['name']}",
-                value=f"{char['rarity']}* {char['element']}\nlvl {char['level']}, friendship {char['friendship']}"
-            )
+        pages.append(stats_embed)
         
         exploration_embed = discord.Embed(
             colour=0xffffff,
@@ -133,20 +134,32 @@ class GenshinImpact(CCog):
                 value=f"explored {city['explored']}% ({city['type']} lvl {city['level']})",
                 inline=False
             )
-        await send_pages(ctx, ctx, [stats_embed, character_embed, exploration_embed])
+        pages.append(exploration_embed)
+        
+        character_embed = discord.Embed(
+            colour=0xffffff,
+            title=f"Info about {user}",
+            description="Basic character info"
+        ).set_footer(
+            text="Powered by genshinstats",
+            icon_url=GENSHIN_LOGO
+        )
+        characters = sorted(data['characters'], key=lambda x: -x['level'])
+        for chunk in grouper(characters, 15):
+            embed = character_embed.copy()
+            for char in chunk:
+                embed.add_field(
+                    name=f"{char['name']}",
+                    value=f"{char['rarity']}* {char['element']} {self._element_emoji(char['element'])}\nlvl {char['level']}, friendship {char['friendship']}"
+                )
+            pages.append(embed)
+        
+        await send_pages(ctx, ctx, pages)
     
     @genshin.command('random')
     @commands.cooldown(5, 60, commands.BucketType.user)
     async def genshin_random(self, ctx: Context):
         """Shows stats for a random user"""
-        if len(self.users_cache) == 0:
-            await ctx.send("Searching for random users, this will take a while")
-        
-        async with ctx.typing():
-            self.bot.loop.create_task(self.update_users_cache())
-            while len(self.users_cache) == 0:
-                await asyncio.sleep(.5)
-        
         card = random.choice(list(self.users_cache.values()))
         return await self.genshin(ctx, card['game_role_id'])
     
@@ -165,7 +178,7 @@ class GenshinImpact(CCog):
             discord.Embed(
                 colour=_item_color(char['rarity']),
                 title=char['name'],
-                description=f"{char['rarity']}* {char['element']}\n"
+                description=f"{char['rarity']}* {char['element']} {self._element_emoji(char['element'])}\n"
                             f"level {char['level']} C{char['constellation']}"
             ).set_thumbnail(
                 url=char['weapon']['icon']
@@ -200,7 +213,7 @@ class GenshinImpact(CCog):
             return
         
         if data['stats']['total_battles'] == 0:
-            await ctx.send("This user has not participated in the spiral abyss that season")
+            await ctx.send(f"This user has not participated in the spiral abyss {'the previous' if previous else 'this'} season")
             return
         
         embeds = [
@@ -210,39 +223,45 @@ class GenshinImpact(CCog):
                 description="Overall spiral abyss stats"
             ).add_field(
                 name="Stats",
-                value=f"Total battles: {data['stats']['total_battles']} Total wins: {data['stats']['total_wins']}\n"
-                      f"Max floor: {data['stats']['max_floor']} Total stars: {data['stats']['total_stars']}",
+                value=f"Max floor: {data['stats']['max_floor']} Total stars: {data['stats']['total_stars']}\n"
+                      f"Total battles: {data['stats']['total_battles']} Total wins: {data['stats']['total_wins']}",
                 inline=False
             ).add_field(
                 name="Character ranks",
                 value="\n".join(f"**{k.replace('_',' ')}**: " + ', '.join(f"{i['name']} ({i['value']})" for i in v[:4]) for k,v in data['character_ranks'].items() if v) or "avalible only for floor 9 or above",
                 inline=False
             ).set_author(
-                name=f"Season {data['season']} ({data['season_start_time']} - {data['season_end_time']})\n"
+                name=f"Season {data['season']} ({data['season_start_time'].replace('-', '/')} - {data['season_end_time'].replace('-', '/')})\n"
             ).set_footer(
                 text="Powered by genshinstats",
                 icon_url=GENSHIN_LOGO
+            ).set_image(
+                url=abyss_banners[0]
             )
         ]
         for floor in data['floors']:
             embed = discord.Embed(
                 colour=0xffffff,
                 title=f"Spiral abyss info of {uid}",
-                description=f"Floor {floor['floor']} ({floor['stars']} stars)",
+                description=f"Floor **{floor['floor']}** (**{floor['stars']}** stars)",
                 timestamp=datetime.fromisoformat(floor['start'])
             ).set_author(
                 name=f"Season {data['season']} (from {data['season_start_time']} to {data['season_end_time']})\n"
             ).set_footer(
                 text="Powered by genshinstats",
                 icon_url=GENSHIN_LOGO
+            ).set_image(
+                url=abyss_banners.get(floor['floor'], discord.Embed.Empty)
             )
             for chamber in floor['chambers']:
                 for battle in chamber['battles']:
                     embed.add_field(
                         name=f"Chamber {chamber['chamber']}" + (f" Half {battle['half']}" if chamber['has_halves'] else '') + f" ({chamber['stars']} star{'s'*(chamber['stars']!=1)})",
-                        value=', '.join(f"{i['name']} (lvl {i['level']})" for i in battle['characters']),
-                        inline=False
+                        value='\n'.join(f"{i['name']} (lvl {i['level']})" for i in battle['characters']),
+                        inline=True
                     )
+                    if battle['half'] == 2:
+                        embed.add_field(name='\u200b', value='\u200b')
             embeds.append(embed)
         await send_pages(ctx, ctx, embeds)
     
@@ -270,7 +289,9 @@ class GenshinImpact(CCog):
             # verify the authkey is valid
             await to_thread(gs.get_banner_types, authkey)
         except gs.GachaLogException as e:
+            del self.authkeys[ctx.author.id]
             await ctx.send(e.msg)
+            await self.genshin_wish_history(ctx)
             return
 
         def embeds():
@@ -294,7 +315,7 @@ class GenshinImpact(CCog):
                         icon_url=GENSHIN_LOGO
                     )
                     if rarest['type'] == 'Character':
-                        embed.set_thumbnail(url=self._get_icon(rarest['name']))
+                        embed.set_thumbnail(url=_character_icon(rarest['name']))
                     elif rarest['id'] in self.icon_cache:
                         embed.set_thumbnail(url=self.icon_cache[rarest['id']])
                     
@@ -320,7 +341,7 @@ class GenshinImpact(CCog):
                         icon_url=GENSHIN_LOGO
                     )
                     if pulls[0]['type'] == 'Character':
-                        embed.set_thumbnail(url=self._get_icon(pulls[0]['name']))
+                        embed.set_thumbnail(url=_character_icon(pulls[0]['name']))
                     elif pulls[0]['id'] in self.icon_cache:
                         embed.set_thumbnail(url=self.icon_cache[pulls[0]['id']])
                     
