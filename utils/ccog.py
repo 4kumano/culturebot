@@ -10,18 +10,18 @@ from discord.ext import commands
 from .config import config, logger
 
 if TYPE_CHECKING:
-    import bot as _bot
+    from bot import CBot
 
 T = TypeVar('T')
 
 class CCog(commands.Cog):
     """A cog with a config, logger and an asynchronous init()"""
     __cog_name__: str # discord.py-stubs does not define this???
-    bot: '_bot.CBot'
+    bot: CBot
     config: configparser.SectionProxy
     logger: Logger = logger
     
-    def __init__(self, bot: _bot.CBot) -> None:
+    def __init__(self, bot: CBot) -> None:
         pass
     
     async def init(self) -> None:

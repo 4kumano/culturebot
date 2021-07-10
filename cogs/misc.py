@@ -2,7 +2,7 @@ import asyncio
 import random
 from datetime import datetime
 from typing import Union
-from utils.discord import get_role
+from utils import get_role, guild_check
 
 import discord
 import humanize
@@ -16,7 +16,7 @@ class Misc(CCog):
     """General miscalenious commands to mess around."""
 
     @commands.command('soundeffect', aliases=['sfx'])
-    @commands.check(lambda ctx: ctx.guild == 790498180504485918)
+    @guild_check(790498180504485918)
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
     async def soundeffect(self, ctx: Context, target: Member = None):
         """Joins user's VC and lets keemstar call him a nice word.
@@ -108,14 +108,21 @@ class Misc(CCog):
     # commands that use discord features
     @commands.command()
     @commands.guild_only()
-    async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str):
+    async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str = '\u200b'):
         """Sends a webhook message that looks like a user sent it."""
         await ctx.message.delete()
         if user == ctx.bot.user:
             await ctx.send(message)
             return
+        
         webhook = await get_webhook(ctx.channel) # type: ignore
-        msg = await webhook.send(message, username=user.display_name, avatar_url=user.avatar_url)
+        await webhook.send(
+            message,
+            username=user.display_name, 
+            avatar_url=user.avatar_url, 
+            files=[await i.to_file(spoiler=i.is_spoiler()) for i in ctx.message.attachments if i.size < 0x100000], 
+            embeds=ctx.message.embeds
+        )
 
     
     # ============================================================

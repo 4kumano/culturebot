@@ -10,7 +10,7 @@ from typing import *  # type: ignore
 
 from typing_extensions import TypeAlias
 
-from discord.raw_models import RawReactionActionEvent
+from discord import RawReactionActionEvent
 
 if TYPE_CHECKING: # 3.10 is not out yet techincally
     from typing_extensions import ParamSpec

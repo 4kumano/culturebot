@@ -5,11 +5,11 @@ from datetime import datetime
 
 import discord
 import humanize
-from discord.channel import TextChannel
+from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Bot, Context
+from discord.ext.commands import  Context
 from mcstatus import MinecraftServer
-from utils import CCog
+from utils import CCog, guild_check
 
 
 class Minecraft(CCog):
@@ -82,7 +82,7 @@ class Minecraft(CCog):
         await ctx.send(embed=embed)
     
     @commands.command()
-    @commands.check(lambda ctx: ctx.guild == 790498180504485918)
+    @guild_check(790498180504485918)
     async def gvp(self, ctx: Context):
         """Shows the status of the gvp minecraft server"""
         embed = await self.get_status_embed(self.gvp_server, gvp=True)

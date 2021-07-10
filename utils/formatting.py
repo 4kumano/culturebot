@@ -8,12 +8,12 @@ from discord.abc import Messageable
 
 T = TypeVar('T')
 
-def wrap(*string: str, lang: str = "") -> str:
+def wrap(*string: str, lang: str = '') -> str:
     """Wraps a string in codeblocks."""
-    return f"```{lang}\n" + "".join(string) + "\n```"
+    return f"```{lang}\n" + ''.join(string) + "\n```"
 
 
-def multiline_join(strings: list[str], sep: str = "", prefix: str = "", suffix: str = "") -> str:
+def multiline_join(strings: list[str], sep: str = '', prefix: str = '', suffix: str = '') -> str:
     """Like str.join but multiline."""
     parts = zip(*(str(i).splitlines() for i in strings))
     return "\n".join(prefix + sep.join(i) + suffix for i in parts)
@@ -21,10 +21,7 @@ def multiline_join(strings: list[str], sep: str = "", prefix: str = "", suffix: 
 def grouper(iterable: Iterable[T], chunk_size: int) -> Iterator[list[T]]:
     """Like chunkify but for any iterable"""
     it = iter(iterable)
-    while True:
-        chunk = list(islice(it, chunk_size))
-        if not chunk:
-            return
+    while (chunk := list(islice(it, chunk_size))):
         yield chunk
 
 def chunkify(string: Union[str, Iterable[str]], chunk_size: int = 1980, newlines: bool = True, wrapped: bool = False) -> list[str]:
@@ -39,7 +36,7 @@ def chunkify(string: Union[str, Iterable[str]], chunk_size: int = 1980, newlines
     if newlines:
         string = string.split("\n") if isinstance(string, str) else string
 
-        chunks = [""]
+        chunks = ['']
         for i in string:
             i += "\n"
             if len(chunks[-1]) + len(i) < chunk_size:

@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterable, TYPE_CHECKING, Iterable, Union
+from typing import TYPE_CHECKING, Iterable, Union
 
 import discord
 from discord import Embed, Guild, PermissionOverwrite, Permissions, Role, TextChannel
 from discord.abc import Messageable
+from discord.ext import commands
 from discord.ext.commands.context import Context
 
-from .tools import Zipper
+from .tools import Paginator
 
 if TYPE_CHECKING:
     from discord.webhook import _AsyncWebhook  # discord.py-stubs
 
 async def get_role(guild: Guild, name: str, overwrite: PermissionOverwrite = None, permissions: Permissions = None) -> Role:
     """Returns a role with specific overwrites"""
-    role = discord.utils.find(lambda r: r.name.lower() == name, guild.roles)
+    role = discord.utils.find(lambda r: r.name.lower() == name.lower(), guild.roles)
     
     if role is None:
         role = await guild.create_role(name=name, permissions=permissions or Permissions.none()) # type: ignore
@@ -51,6 +52,18 @@ async def get_webhook(channel: TextChannel) -> _AsyncWebhook:
 
     return webhook
 
+def guild_check(guild: Union[int, Guild]):
+    """A check decorator for guilds"""
+    guild = guild.id if isinstance(guild, Guild) else guild
+    def predicate(ctx: Context):
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage()
+        elif ctx.guild.id == guild:
+            raise commands.CheckFailure("This command cannot be used in this server")
+        else:
+            return True
+    return commands.check(predicate)
+
 async def _try_delete_reaction(message: discord.Message, payload: discord.RawReactionActionEvent) -> None:
     try:
         await message.remove_reaction(payload.emoji, discord.Object(id=payload.user_id))
@@ -69,8 +82,8 @@ async def send_pages(
     
     If anext is true the items will be gotten asynchronously.
     """
-    zipper = Zipper(pages)
-    message = await destination.send(embed=zipper.curr)
+    paginator = Paginator(pages)
+    message = await destination.send(embed=paginator.curr)
 
     for reaction in (page_left, page_right, remove):
         asyncio.create_task(message.add_reaction(reaction))
@@ -97,10 +110,10 @@ async def send_pages(
             await message.delete()
             return
         elif r == page_right:
-            embed = (await zipper.anext() if anext else zipper.next())
+            embed = (await paginator.anext() if anext else paginator.next())
         elif r == page_left:
             try:
-                embed = (await zipper.aprev() if anext else zipper.prev())
+                embed = paginator.prev()
             except IndexError:
                 continue
         else:

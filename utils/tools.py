@@ -75,15 +75,20 @@ def zip_once(iterable: Iterable[T], first: T1, rest: T2 = '\u200b') -> Iterator[
     yield from zip(iterable, repeat_once(first, rest))
 
 
-class Zipper(Iterator[T]):
-    """A cycle that supports getting previous values with (partial) async support."""
+class Paginator(Generic[T]):
+    """A paginator that allows getting the next(), prev() and curr pages.
+    
+    The paginator wraps around like a cycle().
+    Supports both sequences and iterables.
+    """
     it: Iterator[T]
     saved: list[T]
     index: int = 0
     depleted: bool = False 
     
     def __init__(self, iterable: Iterable[T]):
-        if isinstance(iterable, Sequence):
+        """Initialize the Paginator with either a sequence or an iterable."""
+        if isinstance(iterable, Collection):
             self.it = iter(())
             self.saved = list(iterable)
             self.depleted = True
@@ -115,12 +120,9 @@ class Zipper(Iterator[T]):
     
     def prev(self) -> T:
         if not self.depleted and self.index == 0:
-            raise IndexError("Cannot get the last item of an undepleted zipper")
+            raise IndexError("Cannot get the last item of an undepleted paginator")
         
         self.index -= 1
         return self.curr
     
     anext = coroutine(next)
-    aprev = coroutine(prev)
-    __next__ = next
-    __anext__ = anext

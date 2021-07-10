@@ -8,18 +8,19 @@ import textwrap
 import time
 import traceback
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import aiohttp
 import discord
 from discord import Guild, Message
 from discord.ext import commands, tasks
 from discord.ext.commands import Context
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pretty_help import PrettyHelp
 
 from utils import config, logger, report_bug, send_chunks
 
-__all__ = ['bot']
+__all__ = ['CBot', 'bot']
 
 class CBot(commands.Bot):
     __slots__ = ()
@@ -31,6 +32,7 @@ class CBot(commands.Bot):
     prefix_file = 'prefixes.json'
     session: aiohttp.ClientSession
     help_command: commands.HelpCommand
+    mongo: AsyncIOMotorDatabase
     
     def __init__(self, prefixes: tuple[str, str], **kwargs):
         self.default_command_prefix, self.silent_command_prefix = prefixes
@@ -42,6 +44,7 @@ class CBot(commands.Bot):
     async def start(self, *args, **kwargs) -> None:
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
+        self.mongo = AsyncIOMotorClient(self.config['bot']['mongodb'])['culturebot']
         update_hentai_presence.start()
         if bot.DEBUG:
             check_for_update.start()
@@ -52,6 +55,13 @@ class CBot(commands.Bot):
         """Closes the bot and its session."""
         await self.session.close()
         await super().close()
+    
+    async def set_guild_prefix(self, guild: Guild, prefix: Union[str, list[str]]) -> None:
+        """Sets the prefix for a guild"""
+        if isinstance(prefix, str):
+            prefix = [prefix]
+        col = self.mongo['prefixes']
+        await col.insert_one({'guild': guild, 'prefixes': prefix})
     
     async def get_guild_prefix(self, guild: Optional[Guild]) -> list[str]:
         """Returns the prefix for a guild"""

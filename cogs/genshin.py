@@ -274,25 +274,29 @@ class GenshinImpact(CCog, name='genshin'):
         """
         authkey = self.authkeys.get(ctx.author.id)
         if authkey is None:
-            cmsg = await ctx.send("Please send your authkey to the bot's dms")
-            await ctx.author.send("Please send your authkey: ")
-            amsg = await discord_input(ctx.bot, ctx.author, ctx.author)
-            await cmsg.delete()
-            if amsg is None:
+            await ctx.send("Please send your authkey to the bot's dms")
+            await ctx.author.send("Please send your authkey here: ")
+            message = await discord_input(ctx.bot, ctx.author, ctx.author)
+            if message is None:
                 await ctx.author.send("Timed out!")
                 return
-            
-            authkey = gs.extract_authkey(amsg.content) or amsg.content
-            self.authkeys[ctx.author.id] = authkey
-        
-        try:
-            # verify the authkey is valid
-            await to_thread(gs.get_banner_types, authkey)
-        except gs.GachaLogException as e:
-            del self.authkeys[ctx.author.id]
-            await ctx.send(e.msg)
-            await self.genshin_wish_history(ctx)
-            return
+            authkey = message.content
+
+        while True:
+            try:
+                await to_thread(gs.fetch_gacha_endpoint, "getConfigList", authkey=authkey)
+            except gs.InvalidAuthkey:
+                await ctx.author.send("That authkey is invalid, please resend it")
+            except gs.AuthkeyTimeout:
+                await ctx.author.send("Your authkey has expired, please resend it here: ")
+            else:
+                self.authkeys[ctx.author.id] = authkey
+                break
+            message = await discord_input(ctx.bot, ctx.author, ctx.author)
+            if message is None:
+                await ctx.author.send("Timed out!")
+                return
+            authkey = message.content
 
         def embeds():
             """Helper function to make a multiline generator"""

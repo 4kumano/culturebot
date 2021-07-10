@@ -1,11 +1,9 @@
 import discord
+from discord import Member, Message
 from discord.channel import TextChannel
 from discord.ext import commands
 from discord.ext.commands import Context
-from discord.member import Member
-from discord.message import Message
-
-from utils import CCog
+from utils import CCog, guild_check
 
 
 class BB(CCog, name="Belle's Battleground"):
@@ -30,7 +28,7 @@ class BB(CCog, name="Belle's Battleground"):
             await message.add_reaction("❌")
 
     @commands.group(invoke_without_command=True)
-    @commands.check(lambda ctx: bool(ctx.guild and ctx.guild.id == 842788736008978504))
+    @guild_check(842788736008978504)
     async def bb(self, ctx: Context):
         """Manages links on Belle's Battleground"""
         await ctx.send("Please either `add` or `remove` a link")
@@ -51,11 +49,12 @@ class BB(CCog, name="Belle's Battleground"):
                 if message.author != self.bot.user:
                     await message.delete()
                     message = await channel.send("dummy")
-                await message.edit(content=f"{member.mention} - {link}")
+                await message.edit(content=f"{member.mention} - {link}", suppress=True)
                 await ctx.send(f"Edited {member}'s {channel.name} link")
                 break
         else:
-            await channel.send(f"{member.mention} - {link}", allowed_mentions=discord.AllowedMentions.none())
+            message = await channel.send(f"{member.mention} - {link}", allowed_mentions=discord.AllowedMentions.none())
+            await message.edit(suppress=True)
             await ctx.send(f"Added {member}'s {channel.name} link")
 
     @bb.command("remove")
