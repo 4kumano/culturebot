@@ -1,5 +1,6 @@
+import asyncio
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import groupby
 
 import discord
@@ -49,12 +50,11 @@ class GenshinImpact(CCog, name='genshin'):
     """Short description"""
     cache = TTLCache(2048, 300)
     icon_cache: dict[int, str] = {}
-    users_cache: TTLCache[int, dict] = TTLCache(2048, 604800)
-    authkeys: dict[int, str] = {}
+    # users_cache: TTLCache[int, dict] = TTLCache(2048, 604800)
     
     async def init(self):
         gs.set_cookies(*self.config['cookies'].splitlines())
-        await self.update_users_cache()
+        # await self.update_users_cache()
     
     def _element_emoji(self, element: str) -> discord.Emoji:
         g = self.bot.get_guild(570841314200125460) or self.bot.guilds[0]
@@ -81,16 +81,17 @@ class GenshinImpact(CCog, name='genshin'):
     def get_spiral_abyss(self, uid: int, previous: bool = False, cookie = None):
         return gs.get_spiral_abyss(uid, previous, cookie)
 
-    async def update_users_cache(self):
-        users = await to_thread(gs.get_recommended_users)
-        for user in users:
-            uid = user['user']['uid']
-            if uid in self.users_cache:
-                continue
-            card = await to_thread(gs.get_record_card, uid)
-            if card is None:
-                continue
-            self.users_cache[uid] = card
+    # async def update_users_cache(self):
+    #     users = await to_thread(gs.get_recommended_users)
+    # for user in users:
+    #     uid = user['user']['uid']
+    #     if uid in self.users_cache:
+    #         continue
+    #     await asyncio.sleep(1) # avoid ratelimit
+    #     card = await to_thread(gs.get_record_card, uid)
+    #     if card is None:
+    #         continue
+    #     self.users_cache[uid] = card
     
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
@@ -156,12 +157,12 @@ class GenshinImpact(CCog, name='genshin'):
         
         await send_pages(ctx, ctx, pages)
     
-    @genshin.command('random')
-    @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_random(self, ctx: Context):
-        """Shows stats for a random user"""
-        card = random.choice(list(self.users_cache.values()))
-        return await self.genshin(ctx, card['game_role_id'])
+    # @genshin.command('random')
+    # @commands.cooldown(5, 60, commands.BucketType.user)
+    # async def genshin_random(self, ctx: Context):
+    #     """Shows stats for a random user"""
+    #     card = random.choice(list(self.users_cache.values()))
+    #     return await self.genshin(ctx, card['game_role_id'])
     
     @genshin.command('characters')
     @commands.cooldown(5, 60, commands.BucketType.user)
@@ -272,7 +273,7 @@ class GenshinImpact(CCog, name='genshin'):
         For instructions as to how to get the authkey refer to the "auto import" section in https://paimon.moe/wish.
         Sharing this authkey is safe but if you do not feel comfortable sharing it you should run this command in dms.
         """
-        authkey = self.authkeys.get(ctx.author.id)
+        authkey = await self.bot.db.authkeys.find_one({'_id': ctx.author.id})
         if authkey is None:
             await ctx.send("Please send your authkey to the bot's dms")
             await ctx.author.send("Please send your authkey here: ")
@@ -281,16 +282,22 @@ class GenshinImpact(CCog, name='genshin'):
                 await ctx.author.send("Timed out!")
                 return
             authkey = message.content
+        else:
+            authkey = authkey['authkey']
 
         while True:
             try:
                 await to_thread(gs.fetch_gacha_endpoint, "getConfigList", authkey=authkey)
             except gs.InvalidAuthkey:
-                await ctx.author.send("That authkey is invalid, please resend it")
+                await ctx.author.send("That authkey is invalid, it must either be a url with the authkey or the authkey itself.")
             except gs.AuthkeyTimeout:
-                await ctx.author.send("Your authkey has expired, please resend it here: ")
+                await ctx.author.send("Your authkey has expired, please get a new one.")
             else:
-                self.authkeys[ctx.author.id] = authkey
+                await self.bot.db.authkeys.update_one(
+                    {'_id': ctx.author.id},
+                    {'$set': {'authkey': authkey, 'expire': datetime.utcnow() + timedelta(days=1)}},
+                    upsert=True
+                )
                 break
             message = await discord_input(ctx.bot, ctx.author, ctx.author)
             if message is None:

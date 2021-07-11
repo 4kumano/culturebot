@@ -31,6 +31,5 @@ for section in empty_config:
     for key in empty_config[section]:
         empty_config[section][key] = ''
 empty_config.set('bot', 'prefix', config.get('bot', 'prefix'))
-empty_config.set('bot', 'silent_prefix', config.get('bot', 'silent_prefix'))
 
 empty_config.write(open('config_.cfg', 'w'), False)

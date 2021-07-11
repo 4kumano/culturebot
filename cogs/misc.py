@@ -1,20 +1,20 @@
 import asyncio
 import random
+from collections import Counter
 from datetime import datetime
 from typing import Union
-from utils import get_role, guild_check
 
 import discord
 import humanize
 from discord import Member, TextChannel, User
 from discord.ext import commands
 from discord.ext.commands import Context
-from utils import CCog, get_webhook, humandate
+from utils import CCog, get_role, get_webhook, guild_check, humandate
 
 
 class Misc(CCog):
     """General miscalenious commands to mess around."""
-
+    
     @commands.command('soundeffect', aliases=['sfx'])
     @guild_check(790498180504485918)
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
@@ -76,6 +76,65 @@ class Misc(CCog):
         await ctx.send(embed=embed)
     
     # ============================================================
+    # swears
+    
+    async def init(self) -> None:
+        with open('assets/swears.txt') as file:
+            self.swear_words = set(file.read().splitlines())
+    
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        words = Counter([word for word in message.content.split() if word in self.swear_words])
+        if not words:
+            return
+        if sum(words.values()) > 20:
+            return # attempt at spam
+        
+        await self.bot.db.swears.update_one(
+            {'_id': message.author.id},
+            {'$inc': {f'swears.{k}':v for k,v in words.items()}},
+            upsert=True
+        )
+    
+    @commands.command()
+    async def swears(self, ctx: commands.Context, user: discord.abc.User = None):
+        """Short help"""
+        if user is None:
+            # there is a proper way to do this but I can't be fucked.
+            c: Counter[int] = Counter()
+            async for doc in self.bot.db.swears.find({}):
+                print(doc)
+                if ctx.guild is None or doc['_id'] in (m.id for m in ctx.guild.members):
+                    c.update({doc['_id']: sum(doc['swears'].values())})
+            
+            embed = discord.Embed(
+                color=discord.Colour.red(),
+                title=f"Top 10 users who swear the most",
+                description=f"List of the top 10 users who have the most of swears"
+            )
+            for rank, (u, amount) in enumerate(c.most_common(10), 1):
+                embed.add_field(
+                    name=f"{rank} - {self.bot.get_user(u)}",
+                    value=f"Sweared **{amount}** time{'s'*(amount!=1)}",
+                    inline=False
+                )
+            await ctx.send(embed=embed)
+        else:
+            swears = await self.bot.db.swears.find_one({'_id': user.id})
+            embed = discord.Embed(
+                color=discord.Colour.red(),
+                title=f"Top 10 swears of {user}",
+                description=f"List of the top 10 most used swears of {user.mention}"
+            )
+            for rank, (swear, amount) in enumerate(Counter(swears['swears']).most_common(10), 1):
+                embed.add_field(
+                    name=f"{rank} - {swear}", 
+                    value=f"Used **{amount}** time{'s'*(amount!=1)}",
+                    inline=False
+                )
+            await ctx.send(embed=embed)
+
+    # ============================================================
     # random commands
         
     @commands.command('roll', aliases=['dice', 'diceroll'])
@@ -108,7 +167,7 @@ class Misc(CCog):
     # commands that use discord features
     @commands.command()
     @commands.guild_only()
-    async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str = '\u200b'):
+    async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str):
         """Sends a webhook message that looks like a user sent it."""
         await ctx.message.delete()
         if user == ctx.bot.user:

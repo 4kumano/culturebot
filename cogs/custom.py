@@ -4,6 +4,7 @@ from discord.channel import TextChannel
 from discord.ext import commands
 from discord.ext.commands import Context
 from utils import CCog, guild_check
+from collections import Counter
 
 
 class BB(CCog, name="Belle's Battleground"):
@@ -70,5 +71,26 @@ class BB(CCog, name="Belle's Battleground"):
         await ctx.send(f"Deleted {member}'s {channel.name} link")
 
 
+class C(CCog):
+    """nonce"""
+    # async def init(self) -> None:
+    #     import genshinstats as gs
+    #     from utils import to_thread
+
+    #     col = self.bot.mongo.genshin_cards
+    #     users = await to_thread(gs.get_recommended_users)
+    #     for user in users:
+    #         uid = user['user']['uid']
+    #         print(f"checking {uid}")
+    #         if (await col.count_documents({'hoyolab_uid': uid}, limit=1)) >= 1:
+    #             continue
+    #         print(f"fetching {uid}")
+    #         card = await to_thread(gs.get_record_card, uid)
+    #         if card is None:
+    #             continue
+    #         print(f"inserting {uid}")
+    #         await col.insert_one({'hoyolab_uid': uid, 'uid': card['game_role_id'], 'card': card})
+
 def setup(bot):
     bot.add_cog(BB(bot))
+    bot.add_cog(C(bot))

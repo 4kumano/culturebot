@@ -29,14 +29,10 @@ class CBot(commands.Bot):
     config = config
     logger = logger
     start_time = datetime.now()
-    prefix_file = 'prefixes.json'
+    command_prefix: str
     session: aiohttp.ClientSession
     help_command: commands.HelpCommand
-    mongo: AsyncIOMotorDatabase
-    
-    def __init__(self, prefixes: tuple[str, str], **kwargs):
-        self.default_command_prefix, self.silent_command_prefix = prefixes
-        super().__init__(prefixes, **kwargs)
+    db: AsyncIOMotorDatabase
     
     def run(self, *, reconnect: bool = True) -> None:
         super().run(self.config["bot"]["token"], bot=True, reconnect=reconnect)
@@ -44,7 +40,7 @@ class CBot(commands.Bot):
     async def start(self, *args, **kwargs) -> None:
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
-        self.mongo = AsyncIOMotorClient(self.config['bot']['mongodb'])['culturebot']
+        self.db = AsyncIOMotorClient(self.config['bot']['mongodb']).culturebot
         update_hentai_presence.start()
         if bot.DEBUG:
             check_for_update.start()
@@ -56,25 +52,33 @@ class CBot(commands.Bot):
         await self.session.close()
         await super().close()
     
-    async def set_guild_prefix(self, guild: Guild, prefix: Union[str, list[str]]) -> None:
-        """Sets the prefix for a guild"""
+    async def set_guild_prefix(self, guild: Guild, prefix: Union[str, list[str]]) -> list[str]:
+        """Sets the prefix for a guild, returns the previous prefix"""
         if isinstance(prefix, str):
             prefix = [prefix]
-        col = self.mongo['prefixes']
-        await col.insert_one({'guild': guild, 'prefixes': prefix})
+        if prefix == [self.command_prefix]:
+            previous = await self.db.prefixes.find_one_and_delete({'_id': guild.id})
+            return previous['prefix'] if previous else [self.command_prefix]
+        
+        previous = await self.db.prefixes.find_one_and_update(
+            {'_id': guild.id}, 
+            {'$set': {'prefix': prefix}},
+            upsert=True
+        )
+        return previous['prefix'] if previous else [self.command_prefix]
     
     async def get_guild_prefix(self, guild: Optional[Guild]) -> list[str]:
         """Returns the prefix for a guild"""
-        return [self.default_command_prefix]
-
-    async def get_silent_guild_prefix(self, guild: Optional[Guild]) -> list[str]:
-        """Returns the silent prefix for a guild"""
-        return [self.silent_command_prefix]
+        guild_id = guild.id if guild else 0
+        prefixes = await self.db.prefixes.find_one({'_id': guild_id})
+        if prefixes is None:
+            return [self.command_prefix]
+        return prefixes['prefix']
+        
     
     async def get_prefix(self, message: Message) -> list[str]:
         """Returns the prefix"""
-        prefixes = await self.get_guild_prefix(message.guild) 
-        prefixes.append(self.config['bot']['silent_prefix'])
+        prefixes = await self.get_guild_prefix(message.guild)
         prefixes.extend(commands.when_mentioned(self, message))
         return sorted(prefixes, key=len, reverse=True)
 
@@ -131,7 +135,7 @@ class CBot(commands.Bot):
 
 
 bot = CBot(
-    (config["bot"]["prefix"], config["bot"]["silent_prefix"]),
+    config["bot"]["prefix"],
     case_insensitive=True,
     strip_after_prefix=True,
     help_command=PrettyHelp(color=0x42F56C, ending_note=f"Prefix: {config['bot']['prefix']}", show_index=False),
@@ -141,12 +145,6 @@ bot = CBot(
 @bot.before_invoke
 async def before_invoke(ctx: Context):
     """Logs a command to the console along with all neccessary info"""
-    if ctx.prefix == config["bot"]["silent_prefix"]:
-        try:
-            await ctx.message.delete()
-        except:
-            pass
-    
     cmd_path = ctx.command.full_parent_name.replace(" ", ".")
     command = (cmd_path + "." if cmd_path else "") + ctx.command.name
 
