@@ -1,10 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import aiohttp
 import discord
 from discord import TextChannel
-from discord.ext import commands, tasks
-from discord.ext.commands import Bot
+from discord.ext import tasks
 from utils import CCog, utc_as_timezone
 
 

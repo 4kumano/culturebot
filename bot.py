@@ -19,6 +19,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pretty_help import PrettyHelp
 
 from utils import config, logger, report_bug, send_chunks
+from web import app, run_app
 
 __all__ = ['CBot', 'bot']
 
@@ -28,6 +29,7 @@ class CBot(commands.Bot):
     DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == "DEBUG"
     config = config
     logger = logger
+    webapp = app
     start_time = datetime.now()
     command_prefix: str
     session: aiohttp.ClientSession
@@ -41,6 +43,7 @@ class CBot(commands.Bot):
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
         self.db = AsyncIOMotorClient(self.config['bot']['mongodb']).culturebot
+        run_app(host='127.0.0.1')
         update_hentai_presence.start()
         if bot.DEBUG:
             check_for_update.start()

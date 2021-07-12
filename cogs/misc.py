@@ -84,33 +84,33 @@ class Misc(CCog):
     
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        words = Counter([word for word in message.content.split() if word in self.swear_words])
-        if not words:
+        words = Counter(word for word in message.content.split() if word in self.swear_words)
+        if not words or sum(words.values()) > 20 or message.guild is None:
             return
-        if sum(words.values()) > 20:
-            return # attempt at spam
         
         await self.bot.db.swears.update_one(
-            {'_id': message.author.id},
+            {'member': message.author.id, 'guild': message.guild.id},
             {'$inc': {f'swears.{k}':v for k,v in words.items()}},
             upsert=True
         )
     
     @commands.command()
+    @commands.guild_only()
     async def swears(self, ctx: commands.Context, user: discord.abc.User = None):
         """Short help"""
+        assert ctx.guild is not None
+        
         if user is None:
             # there is a proper way to do this but I can't be fucked.
             c: Counter[int] = Counter()
             async for doc in self.bot.db.swears.find({}):
-                print(doc)
-                if ctx.guild is None or doc['_id'] in (m.id for m in ctx.guild.members):
-                    c.update({doc['_id']: sum(doc['swears'].values())})
+                if doc['guild'] == ctx.guild.id or doc['member'] in (m.id for m in ctx.guild.members):
+                    c.update({doc['member']: sum(doc['swears'].values())})
             
             embed = discord.Embed(
                 color=discord.Colour.red(),
-                title=f"Top 10 users who swear the most",
-                description=f"List of the top 10 users who have the most of swears"
+                title=f"Top 10 users who have sworn the most",
+                description=f"List of the top 10 users who have the most of swears in {ctx.guild.name}"
             )
             for rank, (u, amount) in enumerate(c.most_common(10), 1):
                 embed.add_field(
@@ -120,7 +120,9 @@ class Misc(CCog):
                 )
             await ctx.send(embed=embed)
         else:
-            swears = await self.bot.db.swears.find_one({'_id': user.id})
+            swears = await self.bot.db.swears.find_one(
+                {'member': ctx.author.id, 'guild': ctx.guild.id}
+            )
             embed = discord.Embed(
                 color=discord.Colour.red(),
                 title=f"Top 10 swears of {user}",
