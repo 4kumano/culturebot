@@ -1,14 +1,12 @@
-import asyncio
-import random
 from datetime import datetime, timedelta
 from itertools import groupby
+from typing import Optional
 
 import discord
 import genshinstats as gs
 from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import (CCog, coroutine, discord_input, grouper, send_pages,
                    to_thread)
 
@@ -46,8 +44,8 @@ abyss_banners = {
     12: base + "pc12.43f28b10.png",
 }
 
-class GenshinImpact(CCog, name='genshin'):
-    """Short description"""
+class GenshinImpact(CCog):
+    """Show info about Genshin Impact users using mihoyo's api"""
     cache = TTLCache(2048, 300)
     icon_cache: dict[int, str] = {}
     # users_cache: TTLCache[int, dict] = TTLCache(2048, 604800)
@@ -61,6 +59,13 @@ class GenshinImpact(CCog, name='genshin'):
         e = discord.utils.get(g.emojis, name=element.lower()) or discord.Emoji()
         return e
     
+    async def _user_uid(self, user: discord.abc.User) -> Optional[int]:
+        """Returns the user's uid as in the database"""
+        data = await self.bot.db.genshin.users.find_one(
+            {'discord_id': user.id, 'uid': {'$exists': True}}
+        )
+        return data['uid'] if data else None
+    
     @cached(cache, key=lambda self, uid, **_: hashkey(uid))
     def _get_user_stats(self, uid: int, cookie = None):
         return gs.get_user_stats(uid, cookie)
@@ -72,7 +77,7 @@ class GenshinImpact(CCog, name='genshin'):
         character_ids = [i['id'] for i in self._get_user_stats(uid)['characters']]
         characters = gs.get_characters(uid, character_ids, lang, cookie)
         for c in characters:
-            self.icon_cache[c['id']] = c['weapon']['icon']
+            self.icon_cache[c['id']] = c['icon']
             self.icon_cache[c['weapon']['id']] = c['weapon']['icon']
         return characters
     
@@ -95,11 +100,18 @@ class GenshinImpact(CCog, name='genshin'):
     
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin(self, ctx: Context, user: int):
+    async def genshin(self, ctx: commands.Context, uid: int = None):
         """Shows info about a genshin player"""
+        print(locals())
+        if uid is None:
+            uid = await self._user_uid(ctx.author) # type: ignore
+            if uid is None:
+                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                return
+        
         await ctx.trigger_typing()
         try:
-            data = await self.get_user_stats(user)
+            data = await self.get_user_stats(uid)
         except gs.GenshinStatsException as e:
             await ctx.send(e.msg)
             return
@@ -108,7 +120,7 @@ class GenshinImpact(CCog, name='genshin'):
         
         stats_embed = discord.Embed(
             colour=0xffffff,
-            title=f"Info about {user}",
+            title=f"Info about {uid}",
             description="Basic user stats"
         ).set_footer(
             text="Powered by genshinstats",
@@ -123,7 +135,7 @@ class GenshinImpact(CCog, name='genshin'):
         
         exploration_embed = discord.Embed(
             colour=0xffffff,
-            title=f"Info about {user}",
+            title=f"Info about {uid}",
             description="Basic exploration info"
         ).set_footer(
             text="Powered by genshinstats",
@@ -139,7 +151,7 @@ class GenshinImpact(CCog, name='genshin'):
         
         character_embed = discord.Embed(
             colour=0xffffff,
-            title=f"Info about {user}",
+            title=f"Info about {uid}",
             description="Basic character info"
         ).set_footer(
             text="Powered by genshinstats",
@@ -151,7 +163,7 @@ class GenshinImpact(CCog, name='genshin'):
             for char in chunk:
                 embed.add_field(
                     name=f"{char['name']}",
-                    value=f"{char['rarity']}* {char['element']} {self._element_emoji(char['element'])}\nlvl {char['level']}, friendship {char['friendship']}"
+                    value=f"{'★'*char['rarity']} {self._element_emoji(char['element'])}\nlvl {char['level']}, friendship {char['friendship']}"
                 )
             pages.append(embed)
         
@@ -159,15 +171,21 @@ class GenshinImpact(CCog, name='genshin'):
     
     # @genshin.command('random')
     # @commands.cooldown(5, 60, commands.BucketType.user)
-    # async def genshin_random(self, ctx: Context):
+    # async def genshin_random(self, ctx: commands.Context):
     #     """Shows stats for a random user"""
     #     card = random.choice(list(self.users_cache.values()))
     #     return await self.genshin(ctx, card['game_role_id'])
     
     @genshin.command('characters')
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_characters(self, ctx: Context, uid: int, lang: str = 'en-us'):
+    async def genshin_characters(self, ctx: commands.Context, uid: Optional[int] = None, lang: str = 'en-us'):
         """Shows info about a genshin player's characters"""
+        if uid is None:
+            uid = await self._user_uid(ctx.author)
+            if uid is None:
+                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                return
+        
         await ctx.trigger_typing()
         try:
             data = await self.get_characters(uid, lang)
@@ -179,20 +197,20 @@ class GenshinImpact(CCog, name='genshin'):
             discord.Embed(
                 colour=_item_color(char['rarity']),
                 title=char['name'],
-                description=f"{char['rarity']}* {char['element']} {self._element_emoji(char['element'])}\n"
+                description=f"{'★'*char['rarity']} {self._element_emoji(char['element'])} "
                             f"level {char['level']} C{char['constellation']}"
             ).set_thumbnail(
                 url=char['weapon']['icon']
             ).set_image(
                 url=char['icon']
             ).add_field(
-                name=f"Weapon: {char['weapon']['name']}",
-                value=f"{char['weapon']['rarity']}* {char['weapon']['type']}\n"
+                name=f"Weapon",
+                value=f"{'★'*char['weapon']['rarity']} {char['weapon']['type']} - {char['weapon']['name']}\n"
                       f"level {char['weapon']['level']} refinement {char['weapon']['refinement']}",
                 inline=False
             ).add_field(
                 name=f"Artifacts",
-                value="\n".join(f"{i['pos_name'].title()}: {i['set']['name']} - {i['rarity']}* level {i['level']}" for i in char['artifacts']) or 'none eqipped',
+                value="\n".join(f"**{(i['pos_name'].title()+':')}** {i['set']['name']}\n{'★'*i['rarity']} lvl {i['level']} - {i['name']}" for i in char['artifacts']) or 'none eqipped',
                 inline=False
             ).set_footer(
                 text="Powered by genshinstats",
@@ -204,8 +222,14 @@ class GenshinImpact(CCog, name='genshin'):
         
     @genshin.command('abyss', aliases=['spiral'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_abyss(self, ctx: Context, uid: int, previous: bool = False):
+    async def genshin_abyss(self, ctx: commands.Context, uid: Optional[int] = None, previous: bool = False):
         """Shows info about a genshin player's spiral abyss runs"""
+        if uid is None:
+            uid = await self._user_uid(ctx.author)
+            if uid is None:
+                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                return
+        
         await ctx.trigger_typing()
         try:
             data = await self.get_spiral_abyss(uid, previous)
@@ -217,6 +241,7 @@ class GenshinImpact(CCog, name='genshin'):
             await ctx.send(f"This user has not participated in the spiral abyss {'the previous' if previous else 'this'} season")
             return
         
+        star = self._element_emoji('abyss_star')
         embeds = [
             discord.Embed(
                 colour=0xffffff,
@@ -244,10 +269,10 @@ class GenshinImpact(CCog, name='genshin'):
             embed = discord.Embed(
                 colour=0xffffff,
                 title=f"Spiral abyss info of {uid}",
-                description=f"Floor **{floor['floor']}** (**{floor['stars']}** stars)",
+                description=f"Floor **{floor['floor']}** (**{floor['stars']}**{star})",
                 timestamp=datetime.fromisoformat(floor['start'])
             ).set_author(
-                name=f"Season {data['season']} (from {data['season_start_time']} to {data['season_end_time']})\n"
+                name=f"Season {data['season']} ({data['season_start_time'].replace('-', '/')} - {data['season_end_time'].replace('-', '/')})\n"
             ).set_footer(
                 text="Powered by genshinstats",
                 icon_url=GENSHIN_LOGO
@@ -257,7 +282,7 @@ class GenshinImpact(CCog, name='genshin'):
             for chamber in floor['chambers']:
                 for battle in chamber['battles']:
                     embed.add_field(
-                        name=f"Chamber {chamber['chamber']}" + (f" Half {battle['half']}" if chamber['has_halves'] else '') + f" ({chamber['stars']} star{'s'*(chamber['stars']!=1)})",
+                        name=f"Chamber {chamber['chamber']}" + (f", {battle['half']}{'st' if battle['half']==1 else 'nd'} Half " if chamber['has_halves'] else '') + f" ({chamber['stars']}{star})",
                         value='\n'.join(f"{i['name']} (lvl {i['level']})" for i in battle['characters']),
                         inline=True
                     )
@@ -266,17 +291,17 @@ class GenshinImpact(CCog, name='genshin'):
             embeds.append(embed)
         await send_pages(ctx, ctx, embeds)
     
-    @genshin.command('wishes', aliases=['wish', 'wishHistory'], hidden=True)
-    async def genshin_wish_history(self, ctx: Context):
+    @genshin.command('wishes', aliases=['wish', 'wishHistory'])
+    async def genshin_wish_history(self, ctx: commands.Context):
         """Shows your wish history, to view it you must provide your authkey.
         
         For instructions as to how to get the authkey refer to the "auto import" section in https://paimon.moe/wish.
         Sharing this authkey is safe but if you do not feel comfortable sharing it you should run this command in dms.
         """
-        authkey = await self.bot.db.authkeys.find_one({'_id': ctx.author.id})
+        authkey = await self.bot.db.genshin.users.find_one({'discord_id': ctx.author.id})
         if authkey is None:
             await ctx.send("Please send your authkey to the bot's dms")
-            await ctx.author.send("Please send your authkey here: ")
+            await ctx.author.send("Please send your authkey here: \nFor instructions as to how to get the authkey refer to the \"auto import\" section in https://paimon.moe/wish.")
             message = await discord_input(ctx.bot, ctx.author, ctx.author)
             if message is None:
                 await ctx.author.send("Timed out!")
@@ -287,16 +312,20 @@ class GenshinImpact(CCog, name='genshin'):
 
         while True:
             try:
-                await to_thread(gs.fetch_gacha_endpoint, "getConfigList", authkey=authkey)
+                uid = await to_thread(gs.get_uid_from_authkey, authkey)
             except gs.InvalidAuthkey:
                 await ctx.author.send("That authkey is invalid, it must either be a url with the authkey or the authkey itself.")
             except gs.AuthkeyTimeout:
                 await ctx.author.send("Your authkey has expired, please get a new one.")
             else:
-                await self.bot.db.authkeys.update_one(
-                    {'_id': ctx.author.id},
-                    {'$set': {'authkey': authkey, 'expire': datetime.utcnow() + timedelta(days=1)}},
+                await self.bot.db.genshin.users.update_one(
+                    {'discord_id': ctx.author.id},
+                    {'$set': {'authkey': authkey, 'authkey_expire': datetime.utcnow() + timedelta(days=1)}},
                     upsert=True
+                )
+                await self.bot.db.genshin.users.update_one(
+                    {'discord_id': ctx.author.id, 'uid': {'$exists': False}},
+                    {'$set': {'uid': uid}}
                 )
                 break
             message = await discord_input(ctx.bot, ctx.author, ctx.author)
@@ -333,7 +362,7 @@ class GenshinImpact(CCog, name='genshin'):
                     for pull in single_pulls:
                         embed.add_field(
                             name=pull['name'],
-                            value=f"{pull['rarity']}* {pull['type']}\n"
+                            value=f"{pull['rarity']}★ {pull['type']}\n"
                                   f"Pulled from the **{pull['banner']}**",
                             inline=False
                         )
@@ -359,11 +388,28 @@ class GenshinImpact(CCog, name='genshin'):
                     for pull in pulls:
                         embed.add_field(
                             name=pull['name'],
-                            value=f"{pull['rarity']}* {pull['type']}\n"
+                            value=f"{pull['rarity']}★ {pull['type']}\n"
                         )
                     yield embed
         
         await send_pages(ctx, ctx, embeds(), anext=True)
+    
+    @genshin.command('setuid', aliases=['login'])
+    async def genshin_setuid(self, ctx: commands.Context, uid: int):
+        """Sets a uid to your account letting the bot remember you when you request more data"""
+        try:
+            await self.get_user_stats(uid)
+        except gs.GenshinStatsException as e:
+            await ctx.send(e.msg)
+            return
+        
+        await self.bot.db.genshin.users.update_one(
+            {'discord_id': ctx.author.id},
+            {'$set': {'uid': uid}},
+            upsert=True
+        )
+        await ctx.send(f"Updated your uid to {uid}")
+        
 
 def setup(bot):
     bot.add_cog(GenshinImpact(bot))

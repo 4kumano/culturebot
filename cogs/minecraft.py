@@ -5,15 +5,13 @@ from datetime import datetime
 
 import discord
 import humanize
-from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import  Context
 from mcstatus import MinecraftServer
 from utils import CCog, guild_check
 
 
 class Minecraft(CCog):
-    """Short description"""
+    """Status of minecraft servers"""
     gvp_players: dict[str, datetime] = {}
     
     async def init(self):
@@ -21,7 +19,7 @@ class Minecraft(CCog):
         
         await self.bot.wait_until_ready()
         channel = await self.bot.fetch_channel(self.config.getint('gvp_channel'))
-        assert isinstance(channel, TextChannel)
+        assert isinstance(channel, discord.TextChannel)
         
         async for i in channel.history():
             if i.author == self.bot.user:
@@ -75,7 +73,7 @@ class Minecraft(CCog):
         )
     
     @commands.command()
-    async def mcstatus(self, ctx: Context, adress: str):
+    async def mcstatus(self, ctx: commands.Context, adress: str):
         """Shows the status of a minecraft server"""
         server = MinecraftServer.lookup(adress)
         embed = await self.get_status_embed(server)
@@ -83,7 +81,7 @@ class Minecraft(CCog):
     
     @commands.command()
     @guild_check(790498180504485918)
-    async def gvp(self, ctx: Context):
+    async def gvp(self, ctx: commands.Context):
         """Shows the status of the gvp minecraft server"""
         embed = await self.get_status_embed(self.gvp_server, gvp=True)
         await ctx.send(embed=embed)

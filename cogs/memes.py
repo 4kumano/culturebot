@@ -6,9 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 import discord
-from discord import File, TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Context
 from pydrive.auth import GoogleAuth, LoadAuth, RefreshError
 from pydrive.drive import GoogleDrive
 from pydrive.files import ApiRequestError, GoogleDriveFile
@@ -131,16 +129,16 @@ class PyDrive:
 
 @coroutine
 @LoadAuth
-def _download_file(file: GoogleDriveFile) -> Optional[File]:
+def _download_file(file: GoogleDriveFile) -> Optional[discord.File]:
     """Downloads a pydrive file object and returns a discord file object"""
     try:
         content = io.BytesIO(file._DownloadFromUrl(file['downloadUrl']))
     except ApiRequestError:
         return None
-    return File(content, file['title'])
+    return discord.File(content, file['title'])
 
-class Memes(CCog, name="memes"):
-    """A utility cog for reposting memes."""
+class Memes(CCog):
+    """A utility category for reposting memes from the owner's meme folder instead of cringe reddit."""
     _memes: List[GoogleDriveFile] = []
 
     async def init(self):
@@ -160,7 +158,7 @@ class Memes(CCog, name="memes"):
 
     @commands.command('meme', aliases=['randommeme'])
     @commands.cooldown(2, 1, commands.BucketType.channel)
-    async def meme(self, ctx: Context, amount: int = 1):
+    async def meme(self, ctx: commands.Context, amount: int = 1):
         """Sends a random meme from the owner's meme folder.
 
         Make take up to 1s to upload the file when the bot 
@@ -177,7 +175,7 @@ class Memes(CCog, name="memes"):
         await ctx.send(files=files)
 
     @commands.command('repost', aliases=['memerepost', 'repostmeme'])
-    async def repost(self, ctx: Context, channel: TextChannel = None):
+    async def repost(self, ctx: commands.Context, channel: discord.TextChannel = None):
         """Reposts a random meme from meme channels in the server
 
         Looks thorugh the last 100 messages in every channel with meme in its name
@@ -208,7 +206,7 @@ class Memes(CCog, name="memes"):
 
     @commands.command('dump_memes', hidden=True)
     @commands.is_owner()
-    async def dump_memes(self, ctx: Context, channel: TextChannel = None):
+    async def dump_memes(self, ctx: commands.Context, channel: discord.TextChannel = None):
         """Dumps all memes from the memebin into a channel.
 
         This can only be used by the owner.
@@ -217,13 +215,13 @@ class Memes(CCog, name="memes"):
         path = self.config['localdir']
         for file in os.listdir(path):
             try:
-                await channel.send(file=File(os.path.join(path, file), file))
+                await channel.send(file=discord.File(os.path.join(path, file), file))
             except discord.HTTPException:
                 pass
     
     @commands.command('upload_memes', hidden=True)
     @commands.is_owner()
-    async def upload_memes(self, ctx: Context):
+    async def upload_memes(self, ctx: commands.Context):
         await ctx.send('Console interaction started')
         await to_thread(self.drive.upload_directory, self.config['localdir'])
 

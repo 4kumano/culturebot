@@ -4,20 +4,18 @@ from typing import Union
 
 import discord
 import humanize
-from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Context
 from utils import CCog, humandate
 
 OSU_LOGO = "https://i.ppy.sh/013ed2c11b34720790e74035d9f49078d5e9aa64/68747470733a2f2f6f73752e7070792e73682f77696b692f696d616765732f4272616e645f6964656e746974795f67756964656c696e65732f696d672f75736167652d66756c6c2d636f6c6f75722e706e67"
 
-class Osu(CCog, name="osu"):
-    """A bot that posts whatever anime the owner watches."""
+class Osu(CCog):
+    """Osu! users and beatmaps"""
     url = "https://osu.ppy.sh/api/v2"
     
     expires_in: datetime = datetime.min
     access_token: str
-    channel: TextChannel
+    channel: discord.TextChannel
     
     limit: int = 20
 
@@ -107,12 +105,12 @@ class Osu(CCog, name="osu"):
             self.logger.info(f"Updated osu score {score['best_id']}")
         
     @commands.group('osu', invoke_without_command=True)
-    async def osu(self, ctx: Context):
+    async def osu(self, ctx: commands.Context):
         """Shows info about osu users and beatmaps."""
         await self.osu_user.invoke(ctx)
     
     @osu.group('user', invoke_without_command=True)
-    async def osu_user(self, ctx: Context, user: str, mode: str = ''):
+    async def osu_user(self, ctx: commands.Context, user: str, mode: str = ''):
         """Shows basic user info"""
         data = await self.request(f"/users/{user}/{mode}")
         stats = data['statistics']
@@ -142,7 +140,7 @@ class Osu(CCog, name="osu"):
         await ctx.send(embed=embed)
     
     @osu.group('beatmap', aliases=['map'])
-    async def osu_beatmap(self, ctx: Context, beatmap: Union[int, str]):
+    async def osu_beatmap(self, ctx: commands.Context, beatmap: Union[int, str]):
         """Shows beatmap info
         
         Takes in either the beatmap id or the url.

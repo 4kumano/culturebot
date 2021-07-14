@@ -1,13 +1,12 @@
 from datetime import datetime
 
 import discord
-from discord import TextChannel
 from discord.ext import tasks
 from utils import CCog, utc_as_timezone
 
 
-class Anilist(CCog, name="anilist"):
-    """A bot that posts whatever anime the owner watches."""
+class Anilist(CCog):
+    """Shows info about an anime using anilist"""
     url = "https://graphql.anilist.co"
     query = """
 query ($id: Int, $last: Int) {
@@ -43,7 +42,7 @@ query ($id: Int, $last: Int) {
   }
 }
     """
-    channel: TextChannel
+    channel: discord.TextChannel
 
     async def init(self):
         await self.bot.wait_until_ready()

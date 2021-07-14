@@ -12,9 +12,7 @@ from typing import Optional, Union
 
 import aiohttp
 import discord
-from discord import Guild, Message
 from discord.ext import commands, tasks
-from discord.ext.commands import Context
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pretty_help import PrettyHelp
 
@@ -42,7 +40,7 @@ class CBot(commands.Bot):
     async def start(self, *args, **kwargs) -> None:
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
-        self.db = AsyncIOMotorClient(self.config['bot']['mongodb']).culturebot
+        self.db = AsyncIOMotorClient(self.config['bot']['mongodb'])
         run_app(host='127.0.0.1')
         update_hentai_presence.start()
         if bot.DEBUG:
@@ -55,31 +53,31 @@ class CBot(commands.Bot):
         await self.session.close()
         await super().close()
     
-    async def set_guild_prefix(self, guild: Guild, prefix: Union[str, list[str]]) -> list[str]:
+    async def set_guild_prefix(self, guild: discord.Guild, prefix: Union[str, list[str]]) -> list[str]:
         """Sets the prefix for a guild, returns the previous prefix"""
         if isinstance(prefix, str):
             prefix = [prefix]
         if prefix == [self.command_prefix]:
-            previous = await self.db.prefixes.find_one_and_delete({'_id': guild.id})
+            previous = await self.db.culturebot.prefixes.find_one_and_delete({'_id': guild.id})
             return previous['prefix'] if previous else [self.command_prefix]
         
-        previous = await self.db.prefixes.find_one_and_update(
+        previous = await self.db.culturebot.prefixes.find_one_and_update(
             {'_id': guild.id}, 
             {'$set': {'prefix': prefix}},
             upsert=True
         )
         return previous['prefix'] if previous else [self.command_prefix]
     
-    async def get_guild_prefix(self, guild: Optional[Guild]) -> list[str]:
+    async def get_guild_prefix(self, guild: Optional[discord.Guild]) -> list[str]:
         """Returns the prefix for a guild"""
         guild_id = guild.id if guild else 0
-        prefixes = await self.db.prefixes.find_one({'_id': guild_id})
+        prefixes = await self.db.culturebot.prefixes.find_one({'_id': guild_id})
         if prefixes is None:
             return [self.command_prefix]
         return prefixes['prefix']
         
     
-    async def get_prefix(self, message: Message) -> list[str]:
+    async def get_prefix(self, message: discord.Message) -> list[str]:
         """Returns the prefix"""
         prefixes = await self.get_guild_prefix(message.guild)
         prefixes.extend(commands.when_mentioned(self, message))
@@ -88,12 +86,12 @@ class CBot(commands.Bot):
     async def on_ready(self):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
 
-    async def on_message_edit(self, before: Message, after: Message):
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if self.user is None:
             return
         await bot.process_commands(after)
 
-    async def on_command_error(self, ctx: Context, error: Exception):
+    async def on_command_error(self, ctx: commands.Context, error: Exception):
         msg = str(error.args[0]) if error.args else ''
         if isinstance(error, commands.CommandInvokeError):
             e = error.original
@@ -141,12 +139,12 @@ bot = CBot(
     config["bot"]["prefix"],
     case_insensitive=True,
     strip_after_prefix=True,
-    help_command=PrettyHelp(color=0x42F56C, ending_note=f"Prefix: {config['bot']['prefix']}", show_index=False),
+    help_command=PrettyHelp(color=0x42F56C, ending_note=f"Prefix: {config['bot']['prefix']}"),
     intents=discord.Intents.all(),
 )
 
 @bot.before_invoke
-async def before_invoke(ctx: Context):
+async def before_invoke(ctx: commands.Context):
     """Logs a command to the console along with all neccessary info"""
     cmd_path = ctx.command.full_parent_name.replace(" ", ".")
     command = (cmd_path + "." if cmd_path else "") + ctx.command.name
@@ -157,7 +155,7 @@ async def before_invoke(ctx: Context):
 @tasks.loop(seconds=60, reconnect=True)
 async def update_hentai_presence():
     await bot.wait_until_ready()
-    hentai = await bot.cogs["nsfw"].hanime_random()  # type: ignore
+    hentai = await bot.cogs["NSFW"].hanime_random()  # type: ignore
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,

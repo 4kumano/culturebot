@@ -4,18 +4,16 @@ from typing import Union
 from utils.interaction import confirm
 
 import discord
-from discord import Member, Message, Role, TextChannel
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import CCog, get_muted_role
 
 
-class Moderation(CCog, name="moderation"):
+class Moderation(CCog):
     """Moderation commands and shit"""
     @commands.command('purge')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def purge(self, ctx: Context, limit: Union[Message, int] = 10):
+    async def purge(self, ctx: commands.Context, limit: Union[discord.Message, int] = 10):
         """Purges a set amount of messages from all users in the current channel
         
         If a message id is passed in, all messages up to the message exclusive will be purged.
@@ -27,7 +25,7 @@ class Moderation(CCog, name="moderation"):
             await ctx.send("Cancelled!")
             return
         
-        if isinstance(limit, Message):
+        if isinstance(limit, discord.Message):
             deleted = await ctx.channel.purge(limit=None, after=limit)
         else:
             deleted = await ctx.channel.purge(limit=limit + 2)
@@ -36,7 +34,7 @@ class Moderation(CCog, name="moderation"):
     @commands.command('prune')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def prune(self, ctx: Context, user: Member, days: int = 1, *channels: TextChannel):
+    async def prune(self, ctx: commands.Context, user: discord.Member, days: int = 1, *channels: discord.TextChannel):
         """Purges all messages from a user from the last 24 hours.
 
         Can specify which channels to purge.
@@ -52,15 +50,16 @@ class Moderation(CCog, name="moderation"):
         await ctx.send(f"Deleted {len(deleted) - 1} messages.", delete_after=1)
 
     @commands.command('mute')
+    @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_roles=True)
-    async def mute(self, ctx: Context, member: Member, *, reason: str = None):
+    async def mute(self, ctx: commands.Context, member: discord.Member, *, reason: str = None):
         """Mutes a member from all channels.
 
         They will not be able to speak until they are unmuted.
         """
-        if ctx.guild is None:
-            raise commands.NoPrivateMessage()
+        assert ctx.guild is not None
+        
         if member.guild_permissions.administrator:
             await ctx.send('Cannot mute an admin')
             return
@@ -69,12 +68,13 @@ class Moderation(CCog, name="moderation"):
         await ctx.send(f'Muted {member}')
 
     @commands.command('unmute')
+    @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_roles=True)
-    async def unmute(self, ctx: Context, member: Member):
+    async def unmute(self, ctx: commands.Context, member: discord.Member):
         """Unmutes a member from all channels."""
-        if ctx.guild is None:
-            raise commands.NoPrivateMessage()
+        assert ctx.guild is not None
+        
         role = await get_muted_role(ctx.guild)
         if role not in member.roles:
             await ctx.send(f"{member} is not currently muted.")
@@ -85,7 +85,7 @@ class Moderation(CCog, name="moderation"):
     @commands.command('lock')
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
-    async def lock(self, ctx: Context, channel: TextChannel = None, *roles: Role):
+    async def lock(self, ctx: commands.Context, channel: discord.TextChannel = None, *roles: discord.Role):
         """Locks a channel for all members. 
         
         You can specify which roles to disallow
@@ -112,7 +112,7 @@ class Moderation(CCog, name="moderation"):
     @commands.command('unlock')
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
-    async def unlock(self, ctx: Context, channel: TextChannel = None, *roles: Role):
+    async def unlock(self, ctx: commands.Context, channel: discord.TextChannel = None, *roles: discord.Role):
         """Unlocks a previously locked channel."""
         channel = channel or ctx.channel # type: ignore
         roles = roles or [ctx.guild.roles[0]] # type: ignore
@@ -125,7 +125,7 @@ class Moderation(CCog, name="moderation"):
     @commands.command()
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
-    async def cleanup(self, ctx: Context):
+    async def cleanup(self, ctx: commands.Context):
         """Goes through every channel and cleans up permissions"""
         assert ctx.guild is not None
         # cleanup permissions

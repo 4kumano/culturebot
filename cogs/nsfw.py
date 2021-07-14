@@ -7,17 +7,15 @@ from typing import List, Optional, Sequence
 
 import aiohttp
 import discord
-from discord import Colour
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import CCog, send_pages
 
 
 class SearchError(Exception):
     pass
 
-class NSFW(CCog, name='nsfw'):
-    """A cog for sending nsfw images from danbooru."""
+class NSFW(CCog):
+    """The true shit everyone is here for."""
     url: str = "https://danbooru.donmai.us/posts.json"
     
     def __init__(self, bot):
@@ -72,7 +70,7 @@ class NSFW(CCog, name='nsfw'):
     
     @commands.group('booru', aliases=['danbooru'], invoke_without_command=True)
     @commands.is_nsfw()
-    async def booru(self, ctx: Context, *tags: str):
+    async def booru(self, ctx: commands.Context, *tags: str):
         """Returns a random hot image from the danbooru website
         
         Can take in tags that limits what images can be returned.
@@ -114,7 +112,7 @@ class NSFW(CCog, name='nsfw'):
         await send_pages(ctx, ctx, embeds)
     
     @booru.command('raw')
-    async def booru_raw(self, ctx: Context, amount: int = 1, *tags: str):
+    async def booru_raw(self, ctx: commands.Context, amount: int = 1, *tags: str):
         """Like booru excepts just sends the image without any embed
         
         If there are multiple tags they must be enclosed in quotes.
@@ -132,7 +130,7 @@ class NSFW(CCog, name='nsfw'):
     
     @booru.command('export', aliases=['txt', 'file'])
     @commands.is_nsfw()
-    async def booru_export(self, ctx: Context, *tags):
+    async def booru_export(self, ctx: commands.Context, *tags):
         """Like booru except sends all found images as a list of links in a txt file"""
         posts = await self.search_danbooru(tags)
         images = '\n'.join(post['file_url'] for post in posts)
@@ -141,7 +139,7 @@ class NSFW(CCog, name='nsfw'):
     
     @commands.command('neko')
     @commands.is_nsfw()
-    async def neko(self, ctx: Context, category: str = 'neko'):
+    async def neko(self, ctx: commands.Context, category: str = 'neko'):
         """Sends a random image from nekos.life"""
         category = category.lower()
         async with self.session.get(f"https://nekos.life/api/v2/img/{category}") as r:
@@ -155,7 +153,7 @@ class NSFW(CCog, name='nsfw'):
     
     @commands.command('lewdneko')
     @commands.is_nsfw()
-    async def lewdneko(self, ctx: Context):
+    async def lewdneko(self, ctx: commands.Context):
         """Sends a random lewd neko from nekos.life"""
         await self.neko(ctx, 'lewd')
     
@@ -193,7 +191,7 @@ class NSFW(CCog, name='nsfw'):
     
     @commands.group(invoke_without_command=True)
     @commands.is_nsfw()
-    async def hanime(self, ctx: Context, *, query: str = ''):
+    async def hanime(self, ctx: commands.Context, *, query: str = ''):
         """Searches hanime for hentai"""
         data = await self.hanime_search(query)
         if len(data) == 0:
@@ -201,7 +199,7 @@ class NSFW(CCog, name='nsfw'):
             return
         embeds = [
             discord.Embed(
-                colour=Colour.gold(),
+                colour=discord.Colour.gold(),
                 title=hentai['name'],
                 description=re.sub(r'<.+?>', '', hentai['description'])
             ).set_author(
@@ -222,11 +220,11 @@ class NSFW(CCog, name='nsfw'):
     
     @hanime.command('random')
     @commands.is_nsfw()
-    async def hanimerandom(self, ctx: Context):
+    async def hanimerandom(self, ctx: commands.Context):
         data = await self.hanime_random()
         embeds = [
             discord.Embed(
-                colour=Colour.gold(),
+                colour=discord.Colour.gold(),
                 description=f"{hentai['views']} views\n"
                             f"{hentai['likes']} likes & {hentai['dislikes']} dislikes"
             ).set_author(
@@ -250,7 +248,7 @@ class NSFW(CCog, name='nsfw'):
     
     @commands.command('yiff', aliases=['furry'])
     @commands.is_nsfw()
-    async def yiff(self, ctx: Context, category = 'Straight'):
+    async def yiff(self, ctx: commands.Context, category = 'Straight'):
         """Sends a random yiff image
         
         If a category is provided the bot sends that specific category

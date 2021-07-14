@@ -6,9 +6,7 @@ from datetime import datetime
 from typing import Mapping, Optional, TypeVar, Union
 
 import discord
-from discord import Member, Message, NotFound, User
-from discord.abc import Messageable
-from discord.ext.commands import Bot, Context
+from discord.ext import commands
 
 from .config import config
 from .formatting import chunkify
@@ -17,7 +15,7 @@ from .tools import zip_once
 T = TypeVar("T")
 
 
-async def report_bug(ctx: Context, error: Exception, description: str = ''):
+async def report_bug(ctx: commands.Context, error: Exception, description: str = ""):
     """Reports a bug to a channel"""
     channel_id = config["bot"].getint("bugreport")
     channel = ctx.bot.get_channel(channel_id) or await ctx.bot.fetch_channel(channel_id)
@@ -26,25 +24,19 @@ async def report_bug(ctx: Context, error: Exception, description: str = ''):
     tb = traceback.format_exception(type(error), error, error.__traceback__)
 
     embed = discord.Embed(
-        color=discord.Colour.red(),
-        title="A bug was encountered!",
-        url=ctx.message.jump_url,
-        timestamp=datetime.now()
-    ).set_author(
-        name=str(ctx.author),
-        icon_url=ctx.author.avatar_url
-    )
-    
-    for chunk, name in zip_once(chunkify(description, 1000, wrapped=True), 'description'):
+        color=discord.Colour.red(), title="A bug was encountered!", url=ctx.message.jump_url, timestamp=datetime.now()
+    ).set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
+
+    for chunk, name in zip_once(chunkify(description, 1000, wrapped=True), "description"):
         embed.add_field(name=name, value=chunk, inline=False)
-    
-    for chunk, name in zip_once(chunkify(tb, 1000, wrapped=True), 'traceback'):
+
+    for chunk, name in zip_once(chunkify(tb, 1000, wrapped=True), "traceback"):
         embed.add_field(name=name, value=chunk, inline=False)
-    
+
     await channel.send(embed=embed)
 
 
-async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout: int = 15) -> bool:
+async def confirm(bot: commands.Bot, message: discord.Message, user: discord.abc.User, timeout: int = 15) -> bool:
     """Confirms a message"""
     yes, no = "✅", "❌"
     await message.add_reaction(yes)
@@ -65,9 +57,9 @@ async def confirm(bot: Bot, message: Message, user: Union[User, Member], timeout
 
 
 async def discord_choice(
-    bot: Bot,
-    message: Message,
-    user: Union[User, Member],
+    bot: commands.Bot,
+    message: discord.Message,
+    user: discord.abc.User,
     choices: Union[Mapping[str, T], list[T]],
     timeout: float = 60,
     delete_after_timeout: bool = True,
@@ -105,7 +97,7 @@ async def discord_choice(
     finally:
         try:
             await message.clear_reactions()
-        except NotFound:
+        except discord.NotFound:
             return None
 
     if str(reaction) == cancel:
@@ -114,14 +106,13 @@ async def discord_choice(
 
     return reactions[str(reaction)]
 
-async def discord_input(bot: Bot, user: Union[User, Member], channel: Messageable, timeout: int = 60) -> Optional[Message]:
-    if isinstance(channel, (User, Member)):
+
+async def discord_input(
+    bot: commands.Bot, user: discord.abc.User, channel: discord.abc.Messageable, timeout: int = 60
+) -> Optional[discord.Message]:
+    if isinstance(channel, (discord.User, discord.Member)):
         channel = channel.dm_channel or await channel.create_dm()
     try:
-        return await bot.wait_for(
-            "message", 
-            check=lambda m: m.author == user and m.channel == channel, 
-            timeout=timeout
-        )
+        return await bot.wait_for("message", check=lambda m: m.author == user and m.channel == channel, timeout=timeout)
     except asyncio.TimeoutError:
         return None

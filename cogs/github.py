@@ -1,16 +1,14 @@
 from datetime import datetime
 
 import discord
-from discord import TextChannel
 from discord.ext import commands, tasks
-from discord.ext.commands import Context
 from utils import CCog
 
 
-class Github(CCog, name="github"):
-    """A bot that posts whatever anime the owner watches."""
+class Github(CCog):
+    """Show info about a github user or repository"""
     url = "https://api.github.com/repos/{user}/{repo}/commits"
-    channel: TextChannel
+    channel: discord.TextChannel
 
     async def init(self):
         await self.bot.wait_until_ready()
@@ -67,7 +65,7 @@ class Github(CCog, name="github"):
             self.logger.info(f"Updated github commit {commit['sha']}")
     
     @commands.command(usage="<user>[/repo]")
-    async def github(self, ctx: Context, path: str):
+    async def github(self, ctx: commands.Context, path: str):
         """Shows info about a github user/repository
         
         Provide as "thesadru" or "thesadru/culturebot"

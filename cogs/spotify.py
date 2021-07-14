@@ -1,14 +1,12 @@
-import aiohttp
 import discord
 import requests
 import spotipy
 from discord.ext import commands, tasks
-from discord.ext.commands import Bot, Context
 from spotipy import CacheFileHandler, SpotifyOAuth
 from utils import CCog, coroutine
 
 
-class Spotify(CCog, name="spotify"):
+class Spotify(CCog):
     """Shows what the owner is listening to on spotify"""
     _session = requests.Session()
     
@@ -41,7 +39,8 @@ class Spotify(CCog, name="spotify"):
         self._session.close()
     
     @commands.command('spotify')
-    async def playing(self, ctx: Context):
+    @commands.is_owner()
+    async def playing(self, ctx: commands.Context):
         """Shows what the owner is currently listening to"""
         data = await coroutine(self.spotify.currently_playing)()
         if data is None:

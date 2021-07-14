@@ -10,7 +10,7 @@ from typing import *  # type: ignore
 
 from typing_extensions import TypeAlias
 
-from discord import RawReactionActionEvent
+import discord
 
 if TYPE_CHECKING: # 3.10 is not out yet techincally
     from typing_extensions import ParamSpec
@@ -57,7 +57,7 @@ def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) ->
     return dt if naive else dt.astimezone(tz)
 
 def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool = True):
-    def predicate(ctx: Context):
+    def predicate(ctx: commands.Context):
         channel = ctx.channel
         if not isinstance(channel, discord.TextChannel):
             if dms:
@@ -69,6 +69,20 @@ def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool 
 
         raise commands.CheckFailure("This channel is not a bot channel.")
 
+    return commands.check(predicate)
+
+def guild_check(guild: Union[int, discord.Guild]):
+    """A check decorator for guilds"""
+    guild = guild.id if isinstance(guild, discord.Guild) else guild
+
+    def predicate(ctx: commands.Context):
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage()
+        elif ctx.guild.id != guild:
+            raise commands.CheckFailure("This command cannot be used in this server")
+        else:
+            return True
+    
     return commands.check(predicate)
 
 async def _wait_for_many(
@@ -101,7 +115,11 @@ async def wait_for_all(bot: Bot, *events: _Event, timeout: int = None) -> dict[s
     tasks = await _wait_for_many(bot, events, timeout=timeout, return_when='ALL_COMPLETED')
     return {task.get_name(): await task for task in tasks}
 
-async def wait_for_reaction(bot: Bot, check: Callable[[RawReactionActionEvent], bool] = None, timeout: int = None) -> Optional[RawReactionActionEvent]:
+async def wait_for_reaction(
+    bot: Bot, 
+    check: Callable[[discord.RawReactionActionEvent], bool] = None, 
+    timeout: int = None
+) -> Optional[discord.RawReactionActionEvent]:
     """Waits for a reaction add or remove"""
     events = [(event, check) for event in ('raw_reaction_add', 'raw_reaction_remove')]
     name, data = await wait_for_any(bot, *events, timeout=timeout)

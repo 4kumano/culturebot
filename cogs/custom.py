@@ -1,10 +1,6 @@
 import discord
-from discord import Member, Message
-from discord.channel import TextChannel
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import CCog, guild_check
-from collections import Counter
 
 
 class BB(CCog, name="Belle's Battleground"):
@@ -19,7 +15,7 @@ class BB(CCog, name="Belle's Battleground"):
         self.links_category = c
 
     @commands.Cog.listener()
-    async def on_message(self, message: Message):
+    async def on_message(self, message: discord.Message):
         """Basically just aura"""
         if message.guild is None or message.guild.id != self.guild_id :
             return
@@ -30,12 +26,12 @@ class BB(CCog, name="Belle's Battleground"):
 
     @commands.group(invoke_without_command=True)
     @guild_check(842788736008978504)
-    async def bb(self, ctx: Context):
+    async def bb(self, ctx: commands.Context):
         """Manages links on Belle's Battleground"""
         await ctx.send("Please either `add` or `remove` a link")
 
     @bb.command("add", aliases=["edit"])
-    async def bb_add(self, ctx: Context, member: Member, link: str):
+    async def bb_add(self, ctx: commands.Context, member: discord.Member, link: str):
         """Adds a link"""
         if "github" in link:
             channel = discord.utils.get(self.links_category.channels, name="github")
@@ -59,7 +55,7 @@ class BB(CCog, name="Belle's Battleground"):
             await ctx.send(f"Added {member}'s {channel.name} link")
 
     @bb.command("remove")
-    async def bb_remove(self, ctx: Context, member: Member, channel: TextChannel):
+    async def bb_remove(self, ctx: commands.Context, member: discord.Member, channel: discord.TextChannel):
         """Removes a link"""
         async for message in channel.history():
             if member in message.mentions:

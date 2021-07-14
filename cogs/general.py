@@ -1,13 +1,10 @@
-import time
 from datetime import datetime
 
 import discord
-from discord import Guild
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import CCog, humandate, humandelta
 
-class General(CCog, name="general"):
+class General(CCog):
     """General all-purpose commands every bot has"""
     
     @commands.command(aliases=["botinfo"])

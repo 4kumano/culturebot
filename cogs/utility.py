@@ -4,18 +4,15 @@ from typing import Union
 
 import aiohttp
 import discord
-from discord import (ClientUser, Emoji, Guild, Member, Message, PartialEmoji,
-                     Role, User)
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import CCog, humandate, send_pages, utc_as_timezone
 
 
-class Utility(CCog, name="utility"):
+class Utility(CCog):
     """Manager for Servers, Members, Roles and emojis"""
     @commands.group('emojis', aliases=['emoji', 'emote', 'emotes'], invoke_without_command=True)
     @commands.guild_only()
-    async def emojis(self, ctx: Context, emoji: Union[Emoji, PartialEmoji] = None):
+    async def emojis(self, ctx: commands.Context, emoji: Union[discord.Emoji, discord.PartialEmoji] = None):
         """Shows and manages all emojis in a guild"""
         if emoji:
             return await self.emoji_details(ctx, emoji)
@@ -32,12 +29,12 @@ class Utility(CCog, name="utility"):
     @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
     @commands.guild_only()
-    async def set_emoji(self, ctx: Context, name: str, emoji: Union[PartialEmoji, str, None] = None, *roles: Role):
+    async def set_emoji(self, ctx: commands.Context, name: str, emoji: Union[discord.PartialEmoji, str, None] = None, *roles: discord.Role):
         """Adds or sets an emoji to another emoji"""
         if not 2 <= len(name) <= 32:
             raise commands.UserInputError('Name must be between 2 and 32 characters')
         
-        if isinstance(emoji, PartialEmoji): # discord emoji
+        if isinstance(emoji, discord.PartialEmoji): # discord emoji
             image = await emoji.url.read()
         else:
             if emoji:
@@ -74,7 +71,7 @@ class Utility(CCog, name="utility"):
     @emojis.command('rename')
     @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
-    async def rename_emoji(self, ctx: Context, emoji: Emoji, name: str, *roles: Role):
+    async def rename_emoji(self, ctx: commands.Context, emoji: discord.Emoji, name: str, *roles: discord.Role):
         """Renames an emoji"""
         await emoji.edit(name=name, roles=list(roles))
         await ctx.send(f'Renamed {emoji}')
@@ -82,16 +79,16 @@ class Utility(CCog, name="utility"):
     @emojis.command('delete', aliases=['remove', 'del'])
     @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
-    async def delete_emoji(self, ctx: Context, emoji: Emoji):
+    async def delete_emoji(self, ctx: commands.Context, emoji: discord.Emoji):
         """Deletes an emoji"""
         await emoji.delete()
         await ctx.send(f'Deleted \\:{emoji.name}\\:')
     
     @emojis.command('details', aliases=['show', 'info'])
-    async def emoji_details(self, ctx: Context, emoji: Union[Emoji, PartialEmoji]):
+    async def emoji_details(self, ctx: commands.Context, emoji: Union[discord.Emoji, discord.PartialEmoji]):
         """Shows emoji details"""
         check = '❌', '✅'
-        if isinstance(emoji, Emoji):
+        if isinstance(emoji, discord.Emoji):
             description = (
                 f"name: {emoji.name}\n"
                 f"id: {emoji.id}\n"
@@ -123,11 +120,11 @@ class Utility(CCog, name="utility"):
         await ctx.send(embed=embed)
     
     @commands.group('user', aliases=['member', 'userinfo'])
-    async def user(self, ctx: Context, user: Union[Member, User, ClientUser] = None):
+    async def user(self, ctx: commands.Context, user: Union[discord.Member, discord.User, discord.ClientUser] = None):
         """Shows info about a user"""
         user = user or ctx.author
         
-        if isinstance(user, Member):
+        if isinstance(user, discord.Member):
             embed = discord.Embed(
                 colour=user.colour if user.colour.value else discord.Colour.light_grey(),
                 description=user.mention
@@ -170,7 +167,7 @@ class Utility(CCog, name="utility"):
         await ctx.send(embed=embed)
     
     @commands.command('role', aliases=['roleinfo'])
-    async def role(self, ctx: Context, role: Role):
+    async def role(self, ctx: commands.Context, role: discord.Role):
         """Shows info about a role"""
         check = '❌', '✅'
         perms = [f"{check[enabled]} {name.replace('_', ' ').title()}" for name, enabled in role.permissions]
@@ -195,7 +192,7 @@ class Utility(CCog, name="utility"):
         await ctx.send(embed=embed)
     
     @commands.command('guild', aliases=['server', 'guildinfo', 'serverinfo'])
-    async def guild(self, ctx: Context, guild: Guild = None):
+    async def guild(self, ctx: commands.Context, guild: discord.Guild = None):
         """Shows info abou a guild."""
         if guild is None and ctx.guild is None:
             raise commands.NoPrivateMessage()
@@ -223,7 +220,7 @@ class Utility(CCog, name="utility"):
     
     @commands.command('react')
     @commands.bot_has_permissions(add_reactions=True)
-    async def react(self, ctx: Context, emoji: Union[Emoji, PartialEmoji], message: Message = None):
+    async def react(self, ctx: commands.Context, emoji: Union[discord.Emoji, discord.PartialEmoji], message: discord.Message = None):
         """Reacts to a message with an emoji so you can add your own reaction
         
         If no message is provided the bot simply sends the emoji and deletes your command.
@@ -246,7 +243,7 @@ class Utility(CCog, name="utility"):
     
     @commands.command('activity', aliases=['activities'])
     @commands.guild_only()
-    async def activity(self, ctx: Context, member: Member = None):
+    async def activity(self, ctx: commands.Context, member: discord.Member = None):
         """Shows the activity of a member."""
         member = member or ctx.author # type: ignore
         if member.activity is None:

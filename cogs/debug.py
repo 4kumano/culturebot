@@ -10,11 +10,10 @@ from typing import Any
 import discord
 import utils
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
 from utils import CCog, chunkify, wrap
 
 
-class Debug(CCog, name='debug'):
+class Debug(CCog):
     """A Cog for command debugging. Owner only."""
     last_return: Any = None
 
@@ -62,7 +61,7 @@ class Debug(CCog, name='debug'):
     _code_re = re.compile(r'(?:```\w{0,2}|`)([^`]+?)(?:```|`)', re.M)
     @commands.command('run', hidden=True)
     @commands.is_owner()
-    async def run(self, ctx: Context, *, string: str = ''):
+    async def run(self, ctx: commands.Context, *, string: str = ''):
         """Runs python code in all codeblocks in the message."""
         env = {
             'bot': self.bot,
@@ -82,7 +81,7 @@ class Debug(CCog, name='debug'):
                 await ctx.send(chunk)
     
     @commands.command(hidden=True)
-    async def getsource(self, ctx: Context, command: str):
+    async def getsource(self, ctx: commands.Context, command: str):
         cmd = self.bot.all_commands.get(command)
         if cmd is None:
             await ctx.send(f"Could not find `{command}`")
@@ -94,7 +93,7 @@ class Debug(CCog, name='debug'):
     @commands.command(hidden=True)
     @commands.is_owner()
     @commands.cooldown(1, 1)
-    async def reload(self, ctx: Context, *extensions: str):
+    async def reload(self, ctx: commands.Context, *extensions: str):
         """Reloads the bot"""
         extensions = extensions or tuple(self.bot.extensions)
         

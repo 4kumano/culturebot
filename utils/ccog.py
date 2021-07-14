@@ -32,9 +32,9 @@ class CCog(commands.Cog):
         
         self: CCog = super().__new__(cls, *args, **kwargs)
         
-        self.__cog_name__ = self.__cog_name__.lower()
-        if self.__cog_name__ in config:
-            self.config = config[self.__cog_name__]
+        cname = self.__cog_name__.lower()
+        if cname in config:
+            self.config = config[cname]
         
         if not inspect.iscoroutinefunction(self.init):
             self.bot.loop.run_in_executor(None, self.init)

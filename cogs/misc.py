@@ -6,9 +6,7 @@ from typing import Union
 
 import discord
 import humanize
-from discord import Member, TextChannel, User
 from discord.ext import commands
-from discord.ext.commands import Context
 from utils import CCog, get_role, get_webhook, guild_check, humandate
 
 
@@ -18,7 +16,7 @@ class Misc(CCog):
     @commands.command('soundeffect', aliases=['sfx'])
     @guild_check(790498180504485918)
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    async def soundeffect(self, ctx: Context, target: Member = None):
+    async def soundeffect(self, ctx: commands.Context, target: discord.Member = None):
         """Joins user's VC and lets keemstar call him a nice word.
 
         If I get canceled for this I have no regrets.
@@ -43,7 +41,7 @@ class Misc(CCog):
     @commands.command('antitor', aliases=['iknowwhatyoudownload', 'torrent', 'peer']) 
     @commands.cooldown(rate=1000, per=24*60*60*60, type=lambda msg: 0) # global limit 1000/day
     @commands.cooldown(rate=5, per=60, type=commands.BucketType.user)
-    async def antitor(self, ctx: Context, ip: str, amount: int = 10):
+    async def antitor(self, ctx: commands.Context, ip: str, amount: int = 10):
         """Shows the torrent history of an ip. Powered by iknowwhatyoudownload.com"""
         async with self.bot.session.get(
             'https://api.antitor.com/history/peer',
@@ -88,7 +86,7 @@ class Misc(CCog):
         if not words or sum(words.values()) > 20 or message.guild is None:
             return
         
-        await self.bot.db.swears.update_one(
+        await self.bot.db.culturebot.swears.update_one(
             {'member': message.author.id, 'guild': message.guild.id},
             {'$inc': {f'swears.{k}':v for k,v in words.items()}},
             upsert=True
@@ -103,7 +101,7 @@ class Misc(CCog):
         if user is None:
             # there is a proper way to do this but I can't be fucked.
             c: Counter[int] = Counter()
-            async for doc in self.bot.db.swears.find({}):
+            async for doc in self.bot.db.culturebot.swears.find({}):
                 if doc['guild'] == ctx.guild.id or doc['member'] in (m.id for m in ctx.guild.members):
                     c.update({doc['member']: sum(doc['swears'].values())})
             
@@ -120,7 +118,7 @@ class Misc(CCog):
                 )
             await ctx.send(embed=embed)
         else:
-            swears = await self.bot.db.swears.find_one(
+            swears = await self.bot.db.culturebot.swears.find_one(
                 {'member': ctx.author.id, 'guild': ctx.guild.id}
             )
             embed = discord.Embed(
@@ -140,7 +138,7 @@ class Misc(CCog):
     # random commands
         
     @commands.command('roll', aliases=['dice', 'diceroll'])
-    async def roll(self, ctx: Context, dice: str = '1d6'):
+    async def roll(self, ctx: commands.Context, dice: str = '1d6'):
         """Does a random dice roll, must be in the format of 1d6"""
         amount,_,sides = dice.partition('d')
         try:
@@ -156,7 +154,7 @@ class Misc(CCog):
             await ctx.send(', '.join(map(str,rolls)) + f'\ntotal: {sum(rolls)}')
     
     @commands.command('coin', aliases=['toss', 'cointoss'])
-    async def coin(self, ctx: Context, heads: str = '', tails: str = ''):
+    async def coin(self, ctx: commands.Context, heads: str = '', tails: str = ''):
         """Tosses a coin, can take in two random outcomes"""
         if heads and not tails:
             await ctx.send(f"Can't have only one possibility")
@@ -169,7 +167,7 @@ class Misc(CCog):
     # commands that use discord features
     @commands.command()
     @commands.guild_only()
-    async def mimic(self, ctx: Context, user: Union[Member, User], *, message: str):
+    async def mimic(self, ctx: commands.Context, user: Union[discord.Member, discord.User], *, message: str):
         """Sends a webhook message that looks like a user sent it."""
         await ctx.message.delete()
         if user == ctx.bot.user:
@@ -193,7 +191,7 @@ class Misc(CCog):
     @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(mention_everyone=True)
     @commands.guild_only()
-    async def mention(self, ctx: Context, type: str = 'here'):
+    async def mention(self, ctx: commands.Context, type: str = 'here'):
         """Silently mentions all users in a server and deletes the message"""
         perms = ctx.channel.permissions_for(ctx.guild.me) # type: ignore
         if perms.manage_messages:
@@ -206,7 +204,7 @@ class Misc(CCog):
     @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(manage_channels=True)
     @commands.cooldown(2, 300, commands.BucketType.guild)
-    async def channel_swap(self, ctx: Context, a: TextChannel, b: TextChannel):
+    async def channel_swap(self, ctx: commands.Context, a: discord.TextChannel, b: discord.TextChannel):
         """Swaps two channels around, troll some members"""
         old = [{attr:getattr(channel,attr) 
                 for attr in ('name', 'position', 'category')} 
@@ -220,7 +218,7 @@ class Misc(CCog):
     @commands.bot_has_permissions(manage_channels=True, manage_messages=True)
     @commands.has_guild_permissions(manage_channels=True)
     @commands.cooldown(1, 30, commands.BucketType.guild)
-    async def fake_ban(self, ctx: Context, target: Member, seconds: int = 120):
+    async def fake_ban(self, ctx: commands.Context, target: discord.Member, seconds: int = 120):
         """Fake bans a member by removing their access to the all channels
         
         Beware: this will cause all permission overwrites to be cleared for them.
