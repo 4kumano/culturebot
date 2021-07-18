@@ -33,10 +33,18 @@ def coroutine(func: Callable[P, T]) -> Callable[P, Coroutine[Any, Any, T]]:
         return await to_thread(func, *args, **kwargs)
     return wrapper
 
-async def maybe_anext(it: Union[Iterator[T], AsyncIterator[T]], default: Any = ...) -> T:
+async def maybe_anext(it: Union[Iterator[T], AsyncIterator[T]], default: Any = ..., asyncify: bool = False) -> T:
+    """Returns the next value ofan iterator, no matter if it's sync or not
+    
+    Works like normal next() and can return a default value if reached end.
+    If asyncify is true and the iterator is sync then the next value is ran in an executor.
+    """
     try:
         if isinstance(it, Iterator):
-            return next(it)
+            if asyncify:
+                return await to_thread(next, it) # type: ignore
+            else:
+                return next(it)
         else:
             return await it.__anext__()
     except (StopIteration, StopAsyncIteration):
@@ -68,12 +76,21 @@ def to_sync_iterator(iterable: AsyncIterable[T]) -> Iterator[T]:
             return
 
 def repeat_once(first: T1, rest: T2 = '\u200b') -> Iterator[Union[T1, T2]]:
+    """Yields the first value once and then repeats the rest
+    
+    >>> repeat_once('A', 'B')
+    A B B B B ...
+    """
     yield first
     yield from repeat(rest)
 
 def zip_once(iterable: Iterable[T], first: T1, rest: T2 = '\u200b') -> Iterator[tuple[T, Union[T1, T2]]]:
+    """Zips each element of an iterable with repeat_once()
+    
+    >>> zip_once([1,2,3], 'A', 'B')
+    (1, 'A'), (2, 'B'), (3, 'B')
+    """
     yield from zip(iterable, repeat_once(first, rest))
-
 
 class Paginator(Generic[T]):
     """A paginator that allows getting the next(), prev() and curr pages.
@@ -101,10 +118,12 @@ class Paginator(Generic[T]):
 
     @property
     def curr(self) -> T:
+        """Current page of the paginator"""
         self.index %= len(self.saved)
         return self.saved[self.index]
     
     def next(self) -> T:
+        """Get the next page of the paginator, if the end is reached return the first page"""
         self.index += 1
         
         if self.depleted or self.index < len(self.saved):
@@ -119,10 +138,47 @@ class Paginator(Generic[T]):
         return value
     
     def prev(self) -> T:
+        """Get the previous page of the paginator"""
         if not self.depleted and self.index == 0:
             raise IndexError("Cannot get the last item of an undepleted paginator")
         
         self.index -= 1
         return self.curr
+
+class AsyncPaginator(Paginator[T]):
+    """A paginator with async iterable support"""
+    it: Union[Iterator[T], AsyncIterator[T]]
     
-    anext = coroutine(next)
+    def __init__(self, iterable: Union[Iterable[T], AsyncIterable[T]]):
+        if isinstance(iterable, AsyncIterable):
+            self.it = iterable.__aiter__()
+            self.saved = []
+        else:
+            super().__init__(iterable)
+    
+    async def acurr(self) -> T:
+        """Helper function to get the first value with async"""
+        if len(self.saved) == 0:
+            return await maybe_anext(self.it)
+        return self.curr
+    
+    @property
+    def curr(self) -> T:
+        if len(self.saved) == 0:
+            raise Exception("Cannot use curr to get the first value before doing next(), "
+                            "you may use \"await paginator.acurr()\"")
+        return super().curr
+    
+    async def next(self, asyncify: bool = False) -> T:
+        self.index += 1
+        
+        if self.depleted or self.index < len(self.saved):
+            return self.curr
+        
+        value = await maybe_anext(self.it, None, asyncify=asyncify)
+        if value is None:
+            self.depleted = True
+            return self.curr
+        
+        self.saved.append(value)
+        return value

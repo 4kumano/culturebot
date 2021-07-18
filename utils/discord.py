@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Iterable, Union
+from typing import TYPE_CHECKING, AsyncIterable, Iterable, Union
 
 import discord
 from discord.ext import commands
 
-from .tools import Paginator
+from .tools import AsyncPaginator, Paginator
 
 if TYPE_CHECKING:
     from discord.webhook import _AsyncWebhook  # discord.py-stubs
@@ -70,16 +70,16 @@ page_left, page_right, remove = "◀", "▶", "❌"
 async def send_pages(
     ctx: commands.Context,
     destination: discord.abc.Messageable,
-    pages: Iterable[discord.Embed],
-    anext: bool = False,
+    pages: Union[Iterable[discord.Embed], AsyncIterable[discord.Embed]],
+    asyncify: bool = False,
     timeout: int = 60,
 ):
     """Send multiple embeds as pages, supports iterators
 
-    If anext is true the items will be gotten asynchronously.
+    If asyncify is true the items will be gotten asynchronously even with sync iterables.
     """
-    paginator = Paginator(pages)
-    message = await destination.send(embed=paginator.curr)
+    paginator = AsyncPaginator(pages)
+    message = await destination.send(embed=await paginator.acurr())
 
     for reaction in (page_left, page_right, remove):
         asyncio.create_task(message.add_reaction(reaction))
@@ -106,7 +106,7 @@ async def send_pages(
             await message.delete()
             return
         elif r == page_right:
-            embed = await paginator.anext() if anext else paginator.next()
+            embed = await paginator.next(asyncify=asyncify)
         elif r == page_left:
             try:
                 embed = paginator.prev()

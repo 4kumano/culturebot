@@ -138,7 +138,6 @@ class NSFW(CCog):
         await ctx.send(file=file)
     
     @commands.command('neko')
-    @commands.is_nsfw()
     async def neko(self, ctx: commands.Context, category: str = 'neko'):
         """Sends a random image from nekos.life"""
         category = category.lower()
@@ -157,7 +156,7 @@ class NSFW(CCog):
         """Sends a random lewd neko from nekos.life"""
         await self.neko(ctx, 'lewd')
     
-    async def hanime_search(self, query: str) -> list:
+    async def hanime_search(self, query: str = '') -> list:
         async with self.session.post(
             "https://search.htv-services.com/",
             headers={
@@ -183,7 +182,7 @@ class NSFW(CCog):
             "https://members.hanime.tv/rapi/v7/hentai_videos",
             params = {
                 "source": "randomize",
-                "r": round(random.random() * (1 << 8))
+                "r": random.getrandbits(2**16)
             }
         ) as r:
             data = await r.json()

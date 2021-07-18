@@ -83,7 +83,7 @@ class Misc(CCog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         words = Counter(word for word in message.content.split() if word in self.swear_words)
-        if not words or sum(words.values()) > 20 or message.guild is None:
+        if not words or sum(words.values()) > 15 or message.guild is None:
             return
         
         await self.bot.db.culturebot.swears.update_one(
@@ -101,9 +101,13 @@ class Misc(CCog):
         if user is None:
             # there is a proper way to do this but I can't be fucked.
             c: Counter[int] = Counter()
-            async for doc in self.bot.db.culturebot.swears.find({}):
-                if doc['guild'] == ctx.guild.id or doc['member'] in (m.id for m in ctx.guild.members):
+            async for doc in self.bot.db.culturebot.swears.find({'guild': ctx.guild.id}):
+                if doc['member'] in (m.id for m in ctx.guild.members):
                     c.update({doc['member']: sum(doc['swears'].values())})
+            
+            if len(c) == 0:
+                await ctx.send("Nobody has ever sworn in this server")
+                return
             
             embed = discord.Embed(
                 color=discord.Colour.red(),
@@ -119,8 +123,11 @@ class Misc(CCog):
             await ctx.send(embed=embed)
         else:
             swears = await self.bot.db.culturebot.swears.find_one(
-                {'member': ctx.author.id, 'guild': ctx.guild.id}
+                {'member': user.id, 'guild': ctx.guild.id}
             )
+            if swears is None:
+                await ctx.send(f"{user} has never sworn in this server")
+                return
             embed = discord.Embed(
                 color=discord.Colour.red(),
                 title=f"Top 10 swears of {user}",

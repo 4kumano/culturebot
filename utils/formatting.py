@@ -45,11 +45,10 @@ def chunkify(
             i += "\n"
             if len(chunks[-1]) + len(i) < chunk_size:
                 chunks[-1] += i
-            elif len(i) > chunk_size:
-                # we don't wrap here because the wrapping will be done no matter what
-                chunks.extend(chunkify(i, chunk_size, newlines=False, wrapped=False))
-            else:
+            elif len(i) < chunk_size:
                 chunks.append(i)
+            else:
+                chunks.extend(chunkify(i, chunk_size, newlines=False, wrapped=False))
     else:
         string = string if isinstance(string, str) else "\n".join(string)
         chunks = [string[i : i + chunk_size] for i in range(0, len(string), chunk_size)]

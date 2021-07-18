@@ -78,9 +78,10 @@ class CBot(commands.Bot):
         
     
     async def get_prefix(self, message: discord.Message) -> list[str]:
-        """Returns the prefix"""
         prefixes = await self.get_guild_prefix(message.guild)
         prefixes.extend(commands.when_mentioned(self, message))
+        if message.guild is None:
+            prefixes.append('')
         return sorted(prefixes, key=len, reverse=True)
 
     async def on_ready(self):
@@ -96,7 +97,7 @@ class CBot(commands.Bot):
         if isinstance(error, commands.CommandInvokeError):
             e = error.original
             if isinstance(e, NotImplementedError):
-                await ctx.send("This command is not avalible")
+                await ctx.send("This command is not availible")
                 return
             if await bot.is_owner(ctx.author):
                 tb = traceback.format_exception(type(error), error, error.__traceback__)
@@ -109,6 +110,8 @@ class CBot(commands.Bot):
         elif isinstance(error, commands.CommandNotFound):
             if not ctx.invoked_with:
                 return
+            if ctx.prefix == '':
+                return # user just sent a random message in dms
 
             cmds = [name for name, command in bot.all_commands.items() if not command.hidden]
             match = difflib.get_close_matches(ctx.invoked_with, cmds, 1)
@@ -139,7 +142,7 @@ bot = CBot(
     config["bot"]["prefix"],
     case_insensitive=True,
     strip_after_prefix=True,
-    help_command=PrettyHelp(color=0x42F56C, ending_note=f"Prefix: {config['bot']['prefix']}"),
+    help_command=PrettyHelp(color=0x42F56C, ending_note="Prefix: {ctx.bot.command_prefix}"),
     intents=discord.Intents.all(),
 )
 

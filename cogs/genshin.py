@@ -316,7 +316,7 @@ class GenshinImpact(CCog):
             except gs.InvalidAuthkey:
                 await ctx.author.send("That authkey is invalid, it must either be a url with the authkey or the authkey itself.")
             except gs.AuthkeyTimeout:
-                await ctx.author.send("Your authkey has expired, please get a new one.")
+                await ctx.author.send("Your authkey has expired, please send a new one.")
             else:
                 await self.bot.db.genshin.users.update_one(
                     {'discord_id': ctx.author.id},
@@ -392,7 +392,7 @@ class GenshinImpact(CCog):
                         )
                     yield embed
         
-        await send_pages(ctx, ctx, embeds(), anext=True)
+        await send_pages(ctx, ctx, embeds(), asyncify=True)
     
     @genshin.command('setuid', aliases=['login'])
     async def genshin_setuid(self, ctx: commands.Context, uid: int):

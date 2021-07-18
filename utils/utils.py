@@ -92,7 +92,7 @@ async def _wait_for_many(
     return_when: str = 'ALL_COMPLETED',
 ) -> set[Task[Any]]:
     """Waits for multiple events"""
-    events = [(e, None) if isinstance(e, str) else (e[0], e[1]) for e in events]
+    events = [(e, None) if isinstance(e, str) else e for e in events]
     futures = [
         bot.loop.create_task(bot.wait_for(event, check=check), name=event) 
         for event, check in events
