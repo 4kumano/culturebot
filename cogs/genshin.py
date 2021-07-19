@@ -1,3 +1,5 @@
+import asyncio
+import json
 from datetime import datetime, timedelta
 from itertools import groupby
 from typing import Optional
@@ -46,13 +48,12 @@ abyss_banners = {
 
 class GenshinImpact(CCog):
     """Show info about Genshin Impact users using mihoyo's api"""
-    cache = TTLCache(2048, 300)
     icon_cache: dict[int, str] = {}
-    # users_cache: TTLCache[int, dict] = TTLCache(2048, 604800)
     
     async def init(self):
-        gs.set_cookies(*self.config['cookies'].splitlines())
-        # await self.update_users_cache()
+        with open(self.config['cookie_file']) as file:
+            cookies = json.load(file)
+        gs.set_cookies(*cookies)
     
     def _element_emoji(self, element: str) -> discord.Emoji:
         g = self.bot.get_guild(570841314200125460) or self.bot.guilds[0]
@@ -66,13 +67,13 @@ class GenshinImpact(CCog):
         )
         return data['uid'] if data else None
     
-    @cached(cache, key=lambda self, uid, **_: hashkey(uid))
+    @cached(TTLCache(2048, 3600), key=lambda self, uid, **_: hashkey(uid))
     def _get_user_stats(self, uid: int, cookie = None):
         return gs.get_user_stats(uid, cookie)
     get_user_stats = coroutine(_get_user_stats)
 
     @coroutine
-    @cached(cache, key=lambda self, uid, lang, **_: hashkey(uid, lang))
+    @cached(TTLCache(2048, 3600), key=lambda self, uid, lang, **_: hashkey(uid, lang))
     def get_characters(self, uid: int, lang: str = 'en-us', cookie = None):
         character_ids = [i['id'] for i in self._get_user_stats(uid)['characters']]
         characters = gs.get_characters(uid, character_ids, lang, cookie)
@@ -82,27 +83,45 @@ class GenshinImpact(CCog):
         return characters
     
     @coroutine
-    @cached(cache, key=lambda self, uid, previous, **_: hashkey(previous))
+    @cached(TTLCache(2048, 3600), key=lambda self, uid, previous, **_: hashkey(uid, previous))
     def get_spiral_abyss(self, uid: int, previous: bool = False, cookie = None):
         return gs.get_spiral_abyss(uid, previous, cookie)
 
-    # async def update_users_cache(self):
-    #     users = await to_thread(gs.get_recommended_users)
-    # for user in users:
-    #     uid = user['user']['uid']
-    #     if uid in self.users_cache:
-    #         continue
-    #     await asyncio.sleep(1) # avoid ratelimit
-    #     card = await to_thread(gs.get_record_card, uid)
-    #     if card is None:
-    #         continue
-    #     self.users_cache[uid] = card
+    async def update_users_cache(self):
+        """Updates the user cache in the database"""
+        await self.bot.wait_until_ready()
+        
+        already_fetched: set[int] = set()
+        already_fetched_hoyolab: set[int] = set()
+        async for i in self.bot.db.genshin.users.find({'hoyolab_uid': {'$exists': True}}):
+            already_fetched.add(i['uid'])
+            already_fetched_hoyolab.add(i['hoyolab_uid'])
+        
+        users = await to_thread(gs.get_recommended_users)
+        for i, user in enumerate(users):
+            if i % 25 == 0:
+                # swap cookies for efficency
+                gs.genshinstats.cookies.append(gs.genshinstats.cookies.pop(0))
+            hoyolab_uid = int(user['user']['uid'])
+            print(hoyolab_uid)
+            if hoyolab_uid in already_fetched_hoyolab:
+                continue
+            await asyncio.sleep(1) # avoid ratelimit
+            card = await to_thread(gs.get_record_card, hoyolab_uid)
+            if card is None:
+                continue
+            uid = int(card['game_role_id'])
+            if uid in already_fetched:
+                continue
+            
+            await self.bot.db.genshin.users.insert_one(
+                {'uid': uid, 'hoyolab_uid': hoyolab_uid}
+            )
     
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
     async def genshin(self, ctx: commands.Context, uid: int = None):
         """Shows info about a genshin player"""
-        print(locals())
         if uid is None:
             uid = await self._user_uid(ctx.author) # type: ignore
             if uid is None:
@@ -169,12 +188,14 @@ class GenshinImpact(CCog):
         
         await send_pages(ctx, ctx, pages)
     
-    # @genshin.command('random')
-    # @commands.cooldown(5, 60, commands.BucketType.user)
-    # async def genshin_random(self, ctx: commands.Context):
-    #     """Shows stats for a random user"""
-    #     card = random.choice(list(self.users_cache.values()))
-    #     return await self.genshin(ctx, card['game_role_id'])
+    @genshin.command('random')
+    @commands.cooldown(5, 60, commands.BucketType.user)
+    async def genshin_random(self, ctx: commands.Context):
+        """Shows stats for a random user"""
+        users = await self.bot.db.genshin.users.aggregate([
+            {"$sample": {"size": 1}}
+        ]).next()
+        return await self.genshin(ctx, users['uid'])
     
     @genshin.command('characters')
     @commands.cooldown(5, 60, commands.BucketType.user)
