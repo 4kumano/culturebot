@@ -41,7 +41,7 @@ class CBot(commands.Bot):
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
         self.db = AsyncIOMotorClient(self.config['bot']['mongodb'])
-        run_app(host='127.0.0.1')
+        await run_app(host='127.0.0.1')
         update_hentai_presence.start()
         if bot.DEBUG:
             check_for_update.start()
@@ -136,6 +136,10 @@ class CBot(commands.Bot):
 
         else:
             raise error
+    
+    @property
+    def uptime(self):
+        return datetime.now() - self.start_time
 
 
 bot = CBot(

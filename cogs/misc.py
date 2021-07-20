@@ -102,8 +102,7 @@ class Misc(CCog):
             # there is a proper way to do this but I can't be fucked.
             c: Counter[int] = Counter()
             async for doc in self.bot.db.culturebot.swears.find({'guild': ctx.guild.id}):
-                if doc['member'] in (m.id for m in ctx.guild.members):
-                    c.update({doc['member']: sum(doc['swears'].values())})
+                c[doc['member']] += sum(doc['swears'].values())
             
             if len(c) == 0:
                 await ctx.send("Nobody has ever sworn in this server")
