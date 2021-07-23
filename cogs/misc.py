@@ -100,11 +100,13 @@ class Misc(CCog):
         
         if user is None:
             # there is a proper way to do this but I can't be fucked.
-            c: Counter[int] = Counter()
-            async for doc in self.bot.db.culturebot.swears.find({'guild': ctx.guild.id}):
-                c[doc['member']] += sum(doc['swears'].values())
+            swears = [
+                (doc['member'], doc['swears']) async for doc in 
+                self.bot.db.culturebot.swears.find({'guild': ctx.guild.id})
+            ]
+            swears.sort(key=lambda x: len(x[1].values()))
             
-            if len(c) == 0:
+            if len(swears) == 0:
                 await ctx.send("Nobody has ever sworn in this server")
                 return
             
@@ -113,10 +115,11 @@ class Misc(CCog):
                 title=f"Top 10 users who have sworn the most",
                 description=f"List of the top 10 users who have the most of swears in {ctx.guild.name}"
             )
-            for rank, (u, amount) in enumerate(c.most_common(10), 1):
+            for rank, (u, s) in enumerate(swears[:10], 1):
                 embed.add_field(
                     name=f"{rank} - {self.bot.get_user(u)}",
-                    value=f"Sweared **{amount}** time{'s'*(amount!=1)}",
+                    value=f"Sweared **{len(s)}** time{'s'*(len(s)!=1)}. Their most common swears are: " + 
+                            ', '.join(s.keys()),
                     inline=False
                 )
             await ctx.send(embed=embed)

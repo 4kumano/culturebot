@@ -51,6 +51,7 @@ class GenshinImpact(CCog):
     icon_cache: dict[int, str] = {}
     
     async def init(self):
+        self.db = self.bot.db.genshinstats
         with open(self.config['cookie_file']) as file:
             cookies = json.load(file)
         gs.set_cookies(*cookies)
@@ -62,7 +63,7 @@ class GenshinImpact(CCog):
     
     async def _user_uid(self, user: discord.abc.User) -> Optional[int]:
         """Returns the user's uid as in the database"""
-        data = await self.bot.db.genshin.users.find_one(
+        data = await self.db.users.find_one(
             {'discord_id': user.id, 'uid': {'$exists': True}}
         )
         return data['uid'] if data else None
@@ -93,7 +94,7 @@ class GenshinImpact(CCog):
         
         already_fetched: set[int] = set()
         already_fetched_hoyolab: set[int] = set()
-        async for i in self.bot.db.genshin.users.find({'hoyolab_uid': {'$exists': True}}):
+        async for i in self.db.users.find({'hoyolab_uid': {'$exists': True}}):
             already_fetched.add(i['uid'])
             already_fetched_hoyolab.add(i['hoyolab_uid'])
         
@@ -114,7 +115,7 @@ class GenshinImpact(CCog):
             if uid in already_fetched:
                 continue
             
-            await self.bot.db.genshin.users.insert_one(
+            await self.db.users.insert_one(
                 {'uid': uid, 'hoyolab_uid': hoyolab_uid}
             )
     
@@ -192,7 +193,7 @@ class GenshinImpact(CCog):
     @commands.cooldown(5, 60, commands.BucketType.user)
     async def genshin_random(self, ctx: commands.Context):
         """Shows stats for a random user"""
-        users = await self.bot.db.genshin.users.aggregate([
+        users = await self.db.users.aggregate([
             {"$sample": {"size": 1}}
         ]).next()
         return await self.genshin(ctx, users['uid'])
@@ -303,7 +304,7 @@ class GenshinImpact(CCog):
             for chamber in floor['chambers']:
                 for battle in chamber['battles']:
                     embed.add_field(
-                        name=f"Chamber {chamber['chamber']}" + (f", {battle['half']}{'st' if battle['half']==1 else 'nd'} Half " if chamber['has_halves'] else '') + f" ({chamber['stars']}{star})",
+                        name=f"Chamber {chamber['chamber']}" + (f"{', 1st' if battle['half']==1 else ', 2nd'} Half " if chamber['has_halves'] else '') + f" ({chamber['stars']}{star})",
                         value='\n'.join(f"{i['name']} (lvl {i['level']})" for i in battle['characters']),
                         inline=True
                     )
@@ -319,7 +320,7 @@ class GenshinImpact(CCog):
         For instructions as to how to get the authkey refer to the "auto import" section in https://paimon.moe/wish.
         Sharing this authkey is safe but if you do not feel comfortable sharing it you should run this command in dms.
         """
-        authkey = await self.bot.db.genshin.users.find_one({'discord_id': ctx.author.id})
+        authkey = await self.db.users.find_one({'discord_id': ctx.author.id})
         if authkey is None:
             await ctx.send("Please send your authkey to the bot's dms")
             await ctx.author.send("Please send your authkey here: \nFor instructions as to how to get the authkey refer to the \"auto import\" section in https://paimon.moe/wish.")
@@ -339,12 +340,12 @@ class GenshinImpact(CCog):
             except gs.AuthkeyTimeout:
                 await ctx.author.send("Your authkey has expired, please send a new one.")
             else:
-                await self.bot.db.genshin.users.update_one(
+                await self.db.users.update_one(
                     {'discord_id': ctx.author.id},
                     {'$set': {'authkey': authkey, 'authkey_expire': datetime.utcnow() + timedelta(days=1)}},
                     upsert=True
                 )
-                await self.bot.db.genshin.users.update_one(
+                await self.db.users.update_one(
                     {'discord_id': ctx.author.id, 'uid': {'$exists': False}},
                     {'$set': {'uid': uid}}
                 )
@@ -424,7 +425,7 @@ class GenshinImpact(CCog):
             await ctx.send(e.msg)
             return
         
-        await self.bot.db.genshin.users.update_one(
+        await self.db.users.update_one(
             {'discord_id': ctx.author.id},
             {'$set': {'uid': uid}},
             upsert=True

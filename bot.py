@@ -1,7 +1,7 @@
+import asyncio
 import difflib
 import importlib
 import os
-import pkgutil
 import random
 import sys
 import textwrap
@@ -12,12 +12,12 @@ from typing import Optional, Union
 
 import aiohttp
 import discord
+import uvicorn
 from discord.ext import commands, tasks
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pretty_help import PrettyHelp
 
 from utils import config, logger, report_bug, send_chunks
-from web import app, run_app
 
 __all__ = ['CBot', 'bot']
 
@@ -27,7 +27,6 @@ class CBot(commands.Bot):
     DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == "DEBUG"
     config = config
     logger = logger
-    webapp = app
     start_time = datetime.now()
     command_prefix: str
     session: aiohttp.ClientSession
@@ -41,12 +40,21 @@ class CBot(commands.Bot):
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
         self.db = AsyncIOMotorClient(self.config['bot']['mongodb'])
-        await run_app(host='127.0.0.1')
+        
+        self.loop.create_task(self.start_webapp())
+        
         update_hentai_presence.start()
         if bot.DEBUG:
             check_for_update.start()
 
         await super().start(*args, **kwargs)
+    
+    async def start_webapp(self) -> None:
+        """Starts the fastapi app"""
+        config = uvicorn.Config('web:app', reload=self.DEBUG, log_level=100, use_colors=False)
+        server = uvicorn.Server(config)
+        await server.serve()
+        await self.close()
 
     async def close(self) -> None:
         """Closes the bot and its session."""
@@ -203,10 +211,3 @@ async def check_for_update():
             else:
                 print(f"Reloaded {name}")
 
-for m in pkgutil.iter_modules(['cogs']):
-    try:
-        bot.load_extension(f"{m.module_finder.path}.{m.name}") # type: ignore
-        print(f"Loaded extension '{m.name}'")
-    except Exception as e:
-        exception = traceback.format_exc()
-        logger.error(f"Failed to load extension {m.name}\n{exception}")
