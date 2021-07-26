@@ -23,13 +23,13 @@ file_handler = RotatingFileHandler(LOG_FILE,maxBytes=0x100000,backupCount=2,enco
 file_handler.setFormatter(FORMATTER)
 logger.addHandler(file_handler)
 
-# make an example config
-empty_config = ConfigParser()
-empty_config.read('config.cfg')
-
-for section in empty_config:
-    for key in empty_config[section]:
-        empty_config[section][key] = ''
-empty_config.set('bot', 'prefix', config.get('bot', 'prefix'))
-
-empty_config.write(open('config_.cfg', 'w'), False)
+if __name__ == '__main__':
+    # make an example config
+    empty_config = ConfigParser()
+    empty_config.read('config.cfg')
+    
+    for section in empty_config:
+        for key in empty_config[section]:
+            empty_config[section][key] = ''
+    empty_config.set('bot', 'prefix', config.get('bot', 'prefix'))
+    empty_config.write(open('config_.cfg', 'w'), False)

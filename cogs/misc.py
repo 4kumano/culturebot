@@ -94,7 +94,7 @@ class Misc(CCog):
     
     @commands.command()
     @commands.guild_only()
-    async def swears(self, ctx: commands.Context, user: discord.abc.User = None):
+    async def swears(self, ctx: commands.Context, user: Union[discord.User, discord.Member] = None):
         """Short help"""
         assert ctx.guild is not None
         
@@ -104,7 +104,7 @@ class Misc(CCog):
                 (doc['member'], doc['swears']) async for doc in 
                 self.bot.db.culturebot.swears.find({'guild': ctx.guild.id})
             ]
-            swears.sort(key=lambda x: len(x[1].values()))
+            swears.sort(key=lambda x: sum(x[1].values()), reverse=True)
             
             if len(swears) == 0:
                 await ctx.send("Nobody has ever sworn in this server")
@@ -118,8 +118,8 @@ class Misc(CCog):
             for rank, (u, s) in enumerate(swears[:10], 1):
                 embed.add_field(
                     name=f"{rank} - {self.bot.get_user(u)}",
-                    value=f"Sweared **{len(s)}** time{'s'*(len(s)!=1)}. Their most common swears are: " + 
-                            ', '.join(s.keys()),
+                    value=f"Sweared **{sum(s.values())}** time{'s'*(len(s)!=1)}.\nMost common swears: " + 
+                            '**' + ', '.join(sorted(s.keys(), key=lambda k: -s[k])[:5]) + '**', 
                     inline=False
                 )
             await ctx.send(embed=embed)
@@ -134,6 +134,8 @@ class Misc(CCog):
                 color=discord.Colour.red(),
                 title=f"Top 10 swears of {user}",
                 description=f"List of the top 10 most used swears of {user.mention}"
+            ).set_thumbnail(
+                url=user.avatar_url
             )
             for rank, (swear, amount) in enumerate(Counter(swears['swears']).most_common(10), 1):
                 embed.add_field(

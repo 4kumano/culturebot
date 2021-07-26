@@ -155,7 +155,7 @@ class Memes(CCog):
         self._memes = [i for i in self.drive.listdir() 
                        if i['downloadUrl'] and int(i['fileSize']) < 0x100000]
         random.shuffle(self._memes)
-
+    
     @commands.command('meme', aliases=['randommeme'])
     @commands.cooldown(2, 1, commands.BucketType.channel)
     async def meme(self, ctx: commands.Context, amount: int = 1):

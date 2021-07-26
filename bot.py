@@ -44,7 +44,7 @@ class CBot(commands.Bot):
         self.loop.create_task(self.start_webapp())
         
         update_hentai_presence.start()
-        if bot.DEBUG:
+        if self.DEBUG:
             check_for_update.start()
 
         await super().start(*args, **kwargs)
@@ -199,7 +199,7 @@ async def check_for_update():
                 pass
             else:
                 print(f"Reloaded {name}")
-        else:
+        elif name != 'web':
             try:
                 importlib.reload(module)
                 # normally you'd reload bot.py itself but that causes a memory leak

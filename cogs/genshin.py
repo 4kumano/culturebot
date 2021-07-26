@@ -2,7 +2,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from itertools import groupby
-from typing import Optional
+from typing import Optional, Union
 
 import discord
 import genshinstats as gs
@@ -51,10 +51,12 @@ class GenshinImpact(CCog):
     icon_cache: dict[int, str] = {}
     
     async def init(self):
-        self.db = self.bot.db.genshinstats
         with open(self.config['cookie_file']) as file:
             cookies = json.load(file)
         gs.set_cookies(*cookies)
+        
+        await self.bot.wait_until_ready()
+        self.db = self.bot.db.genshin
     
     def _element_emoji(self, element: str) -> discord.Emoji:
         g = self.bot.get_guild(570841314200125460) or self.bot.guilds[0]
@@ -200,10 +202,10 @@ class GenshinImpact(CCog):
     
     @genshin.command('characters')
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_characters(self, ctx: commands.Context, uid: Optional[int] = None, lang: str = 'en-us'):
+    async def genshin_characters(self, ctx: commands.Context, uid: Union[int] = None, lang: str = 'en-us'):
         """Shows info about a genshin player's characters"""
         if uid is None:
-            uid = await self._user_uid(ctx.author)
+            uid = await self._user_uid(ctx.author) # type: ignore
             if uid is None:
                 await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
                 return
@@ -241,27 +243,12 @@ class GenshinImpact(CCog):
             for char in data
         ]
         await send_pages(ctx, ctx, embeds)
-        
-    @genshin.command('abyss', aliases=['spiral'])
-    @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_abyss(self, ctx: commands.Context, uid: Optional[int] = None, previous: bool = False):
-        """Shows info about a genshin player's spiral abyss runs"""
-        if uid is None:
-            uid = await self._user_uid(ctx.author)
-            if uid is None:
-                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
-                return
-        
-        await ctx.trigger_typing()
-        try:
-            data = await self.get_spiral_abyss(uid, previous)
-        except gs.GenshinStatsException as e:
-            await ctx.send(e.msg)
-            return
-        
+    
+    async def _genshin_abyss(self, uid: int, previous: bool) -> list[discord.Embed]:
+        """Gets the embeds for spiral abyss history for a specific season."""
+        data = await self.get_spiral_abyss(uid, previous)
         if data['stats']['total_battles'] == 0:
-            await ctx.send(f"This user has not participated in the spiral abyss {'the previous' if previous else 'this'} season")
-            return
+            return []
         
         star = self._element_emoji('abyss_star')
         embeds = [
@@ -311,6 +298,31 @@ class GenshinImpact(CCog):
                     if battle['half'] == 2:
                         embed.add_field(name='\u200b', value='\u200b')
             embeds.append(embed)
+        return embeds
+        
+    @genshin.command('abyss', aliases=['spiral'])
+    @commands.cooldown(5, 60, commands.BucketType.user)
+    async def genshin_abyss(self, ctx: commands.Context, uid: Optional[int] = None):
+        """Shows info about a genshin player's spiral abyss runs"""
+        if uid is None:
+            uid = await self._user_uid(ctx.author)
+            if uid is None:
+                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                return
+        
+        await ctx.trigger_typing()
+        # this should've been a generator but it's too much of a pain
+        embeds = []
+        try:
+            embeds += await self._genshin_abyss(uid, False)
+            embeds += await self._genshin_abyss(uid, True)
+        except gs.GenshinStatsException as e:
+            await ctx.send(e.msg)
+            return
+        if len(embeds) == 0:
+            await ctx.send("Player hasn't done any spiral abyss in the past month")
+            return
+        
         await send_pages(ctx, ctx, embeds)
     
     @genshin.command('wishes', aliases=['wish', 'wishHistory'])
