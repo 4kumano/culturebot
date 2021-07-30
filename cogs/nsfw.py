@@ -26,8 +26,8 @@ class NSFW(CCog):
             self.config['login'], self.config['api_key']
         )
     
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def init(self):
+        await self.bot.wait_until_ready()
         await self._set_yiff_categories()
 
     def cog_unload(self):

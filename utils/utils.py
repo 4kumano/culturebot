@@ -56,6 +56,10 @@ def utc_as_timezone(dt: datetime, naive: bool = False, reverse: bool = False) ->
     dt += delta
     return dt if naive else dt.astimezone(tz)
 
+def humanlist(l: Sequence[str], join: str = 'and') -> str:
+    """Returns a human readable list"""
+    return ', '.join(l[:-1]) + f' {join} ' + l[-1]
+
 def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool = True):
     def predicate(ctx: commands.Context):
         channel = ctx.channel

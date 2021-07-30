@@ -1,4 +1,5 @@
 from datetime import datetime
+from utils.utils import humanlist
 
 import discord
 from discord.ext import commands
@@ -24,17 +25,21 @@ class General(CCog):
             name=self.bot.user.name,
             icon_url=self.bot.user.avatar_url
         ).add_field(
+            name="Prefix:",
+            value=f"{humanlist([f'`{p}`' for p in await self.bot.get_guild_prefix(ctx.guild)] + [self.bot.user.mention], 'or')}"
+        ).add_field(
             name="Owner:",
             value=app.owner.mention
         ).add_field(
-            name="Prefix:",
-            value=f"`{self.bot.config['bot']['prefix']}` or {self.bot.user.mention}"
+            name="Uptime:",
+            value=f"{humandelta(datetime.now() - self.bot.start_time)} (since {humandate(self.bot.start_time)})",
+            inline=False
         ).add_field(
             name="Source code (python):",
-            value="[thesadru/culturebot](https://github.com/thesadru/culturebot)"
+            value="[thesadru/culturebot](https://github.com/thesadru/culturebot)",
         ).add_field(
-            name="Uptime:",
-            value=f"{humandelta(datetime.now() - self.bot.start_time)} (since {humandate(self.bot.start_time)})"
+            name="API",
+            value=f"http://{self.bot.server.config.host}:{self.bot.server.config.port}/docs"
         ).set_footer(
             text=f"requested by {ctx.message.author}",
             icon_url=ctx.message.author.avatar_url

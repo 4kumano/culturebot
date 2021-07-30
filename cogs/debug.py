@@ -4,7 +4,7 @@ import re
 import textwrap
 import traceback
 from contextlib import redirect_stdout
-from pprint import pprint
+from pprint import pprint, pformat
 from typing import Any
 
 import discord
@@ -46,13 +46,13 @@ class Debug(CCog):
                 stdout += '\n' + repr(ret)
             return stdout
         elif ret:
-            return repr(ret)
+            return pformat(ret)
         
         try:
             ret = eval(code, env)
             if ret:
                 self.last_return = ret
-                return repr(ret)
+                return pformat(ret)
         except:
             pass
         

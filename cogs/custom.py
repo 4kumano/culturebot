@@ -31,7 +31,8 @@ class BB(CCog, name="Belle's Battleground"):
         await ctx.send("Please either `add` or `remove` a link")
 
     @bb.command("add", aliases=["edit"])
-    async def bb_add(self, ctx: commands.Context, member: discord.Member, link: str):
+    @commands.cooldown(1, per=5, type=commands.BucketType.guild)
+    async def bb_add(self, ctx: commands.Context, member: discord.User, link: str):
         """Adds a link"""
         if "github" in link:
             channel = discord.utils.get(self.links_category.channels, name="github")

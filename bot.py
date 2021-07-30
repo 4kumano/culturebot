@@ -51,9 +51,9 @@ class CBot(commands.Bot):
     
     async def start_webapp(self) -> None:
         """Starts the fastapi app"""
-        config = uvicorn.Config('web:app', reload=self.DEBUG, log_level=100, use_colors=False)
-        server = uvicorn.Server(config)
-        await server.serve()
+        config = uvicorn.Config('web:app', debug=self.DEBUG, reload=self.DEBUG, use_colors=False)
+        self.server = uvicorn.Server(config)
+        await self.server.serve()
         await self.close()
 
     async def close(self) -> None:
@@ -154,7 +154,7 @@ bot = CBot(
     config["bot"]["prefix"],
     case_insensitive=True,
     strip_after_prefix=True,
-    help_command=PrettyHelp(color=0x42F56C, ending_note="Prefix: {ctx.bot.command_prefix}"),
+    help_command=PrettyHelp(color=0x42F56C, ending_note="Global Prefix: {ctx.bot.command_prefix}"),
     intents=discord.Intents.all(),
 )
 

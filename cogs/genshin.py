@@ -81,8 +81,8 @@ class GenshinImpact(CCog):
         character_ids = [i['id'] for i in self._get_user_stats(uid)['characters']]
         characters = gs.get_characters(uid, character_ids, lang, cookie)
         for c in characters:
-            self.icon_cache[c['id']] = c['icon']
-            self.icon_cache[c['weapon']['id']] = c['weapon']['icon']
+            self.icon_cache[c['name']] = c['icon']
+            self.icon_cache[c['weapon']['name']] = c['weapon']['icon']
         return characters
     
     @coroutine
@@ -123,12 +123,17 @@ class GenshinImpact(CCog):
     
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin(self, ctx: commands.Context, uid: int = None):
+    async def genshin(self, ctx: commands.Context, user: Union[discord.User, int] = None):
         """Shows info about a genshin player"""
-        if uid is None:
-            uid = await self._user_uid(ctx.author) # type: ignore
+        if isinstance(user, int):
+            uid = user
+        else:
+            uid = await self._user_uid(user or ctx.author)
             if uid is None:
-                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                if user is None:
+                    await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                else:
+                    await ctx.send(f"User does not have a uid set")
                 return
         
         await ctx.trigger_typing()
@@ -179,7 +184,7 @@ class GenshinImpact(CCog):
             text="Powered by genshinstats",
             icon_url=GENSHIN_LOGO
         )
-        characters = sorted(data['characters'], key=lambda x: -x['level'])
+        characters = sorted(data['characters'], key=lambda x: x['level'], reverse=True)
         for chunk in grouper(characters, 15):
             embed = character_embed.copy()
             for char in chunk:
@@ -202,12 +207,17 @@ class GenshinImpact(CCog):
     
     @genshin.command('characters')
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_characters(self, ctx: commands.Context, uid: Union[int] = None, lang: str = 'en-us'):
+    async def genshin_characters(self, ctx: commands.Context, user: Union[discord.User, int] = None, lang: str = 'en-us'):
         """Shows info about a genshin player's characters"""
-        if uid is None:
-            uid = await self._user_uid(ctx.author) # type: ignore
+        if isinstance(user, int):
+            uid = user
+        else:
+            uid = await self._user_uid(user or ctx.author)
             if uid is None:
-                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                if user is None:
+                    await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+                else:
+                    await ctx.send(f"User does not have a uid set")
                 return
         
         await ctx.trigger_typing()
@@ -332,8 +342,11 @@ class GenshinImpact(CCog):
         For instructions as to how to get the authkey refer to the "auto import" section in https://paimon.moe/wish.
         Sharing this authkey is safe but if you do not feel comfortable sharing it you should run this command in dms.
         """
-        authkey = await self.db.users.find_one({'discord_id': ctx.author.id})
-        if authkey is None:
+        data = await self.db.users.find_one({
+            'discord_id': ctx.author.id, 
+            'authkey': {'$exists': True}
+        })
+        if data is None:
             await ctx.send("Please send your authkey to the bot's dms")
             await ctx.author.send("Please send your authkey here: \nFor instructions as to how to get the authkey refer to the \"auto import\" section in https://paimon.moe/wish.")
             message = await discord_input(ctx.bot, ctx.author, ctx.author)
@@ -342,7 +355,7 @@ class GenshinImpact(CCog):
                 return
             authkey = message.content
         else:
-            authkey = authkey['authkey']
+            authkey = data['authkey']
 
         while True:
             try:
@@ -391,7 +404,7 @@ class GenshinImpact(CCog):
                     if rarest['type'] == 'Character':
                         embed.set_thumbnail(url=_character_icon(rarest['name']))
                     elif rarest['id'] in self.icon_cache:
-                        embed.set_thumbnail(url=self.icon_cache[rarest['id']])
+                        embed.set_thumbnail(url=self.icon_cache[rarest['name']])
                     
                     for pull in single_pulls:
                         embed.add_field(
