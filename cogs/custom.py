@@ -1,3 +1,4 @@
+from __future__ import annotations
 import discord
 from discord.ext import commands
 from utils import CCog, guild_check

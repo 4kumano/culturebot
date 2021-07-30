@@ -11,22 +11,13 @@ from typing import *  # type: ignore
 from typing_extensions import TypeAlias
 
 import discord
-
-if TYPE_CHECKING: # 3.10 is not out yet techincally
-    from typing_extensions import ParamSpec
-else:
-    ParamSpec = lambda *_,**__: None
-
-import discord
 from discord.ext import commands
-from discord.ext.commands import Bot, Context
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
-P = ParamSpec("P")
 
-_Event: TypeAlias = Union[str, tuple[str, Optional[Callable[..., bool]]]]
+_Event: TypeAlias = Union[str, Tuple[str, Optional[Callable[..., bool]]]]
 
 def humandate(dt: Union[datetime, str, None]) -> str:
     if dt is None:
@@ -90,7 +81,7 @@ def guild_check(guild: Union[int, discord.Guild]):
     return commands.check(predicate)
 
 async def _wait_for_many(
-    bot: Bot,
+    bot: commands.Bot,
     events: Iterable[_Event],
     timeout: Optional[int] = None,
     return_when: str = 'ALL_COMPLETED',
@@ -106,7 +97,7 @@ async def _wait_for_many(
         task.cancel()
     return done
 
-async def wait_for_any(bot: Bot, *events: _Event, timeout: int = None) -> Union[tuple[str, Any], tuple[Literal[''], None]]:
+async def wait_for_any(bot: commands.Bot, *events: _Event, timeout: int = None) -> Union[tuple[str, Any], tuple[Literal[''], None]]:
     """Waits for the first event to complete"""
     tasks = await _wait_for_many(bot, events, timeout=timeout, return_when='FIRST_COMPLETED')
     if not tasks:
@@ -114,13 +105,13 @@ async def wait_for_any(bot: Bot, *events: _Event, timeout: int = None) -> Union[
     task = tasks.pop()
     return task.get_name(), await task
 
-async def wait_for_all(bot: Bot, *events: _Event, timeout: int = None) -> dict[str, Any]:
+async def wait_for_all(bot: commands.Bot, *events: _Event, timeout: int = None) -> dict[str, Any]:
     """Waits for the all event to complete"""
     tasks = await _wait_for_many(bot, events, timeout=timeout, return_when='ALL_COMPLETED')
     return {task.get_name(): await task for task in tasks}
 
 async def wait_for_reaction(
-    bot: Bot, 
+    bot: commands.Bot, 
     check: Callable[[discord.RawReactionActionEvent], bool] = None, 
     timeout: int = None
 ) -> Optional[discord.RawReactionActionEvent]:

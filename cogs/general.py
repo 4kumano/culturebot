@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 from utils.utils import humanlist
 
@@ -44,6 +45,7 @@ class General(CCog):
             text=f"requested by {ctx.message.author}",
             icon_url=ctx.message.author.avatar_url
         )
+        
         await ctx.send(embed=embed)
 
     @commands.command()

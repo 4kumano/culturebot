@@ -1,4 +1,4 @@
-import asyncio
+from __future__ import annotations
 import difflib
 import importlib
 import os
@@ -7,7 +7,7 @@ import sys
 import textwrap
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Union
 
 import aiohttp
@@ -96,7 +96,7 @@ class CBot(commands.Bot):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if self.user is None:
+        if datetime.now() - before.created_at > timedelta(minutes=2):
             return
         await bot.process_commands(after)
 
@@ -116,8 +116,8 @@ class CBot(commands.Bot):
             await report_bug(ctx, e)
 
         elif isinstance(error, commands.CommandNotFound):
-            if not ctx.invoked_with:
-                return
+            if not ctx.invoked_with or not ctx.invoked_with.strip()[0].isalpha():
+                return # wasn't a command at all
             if ctx.prefix == '':
                 return # user just sent a random message in dms
 

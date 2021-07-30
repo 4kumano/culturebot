@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pkgutil
 import traceback
 
@@ -5,7 +6,8 @@ from bot import bot
 
 for m in pkgutil.iter_modules(['cogs']):
     try:
-        bot.load_extension(f"{m.module_finder.path}.{m.name}") # type: ignore
+        module = f"{m.module_finder.path.split('/')[-1]}.{m.name}" # type: ignore
+        bot.load_extension(module)
         print(f"Loaded extension '{m.name}'")
     except Exception as e:
         exception = traceback.format_exc()

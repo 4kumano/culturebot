@@ -2,9 +2,11 @@ aiohttp
 cachetools
 discord.py
 discord-pretty-help
+fastapi
 genshinstats
 humanize
 mcstatus
 motor
 pydrive
 spotipy
+uvicorn
