@@ -8,7 +8,6 @@ from utils import CCog
 
 class Github(CCog):
     """Show info about a github user or repository"""
-    url = "https://api.github.com/repos/{user}/{repo}/commits"
     channel: discord.TextChannel
 
     async def init(self):
@@ -34,12 +33,12 @@ class Github(CCog):
             await self.update_commit_activity(repo, since)
 
     async def update_commit_activity(self, repo: str, since: datetime):
-        async with self.bot.session.get(
-            self.url.format(user=self.config['user'], repo=repo),
+        r =  await self.bot.session.get(
+            f"https://api.github.com/repos/{self.config['user']}/{repo}/commits",
             params=dict(since=since.isoformat(), per_page=100),
             headers={"Authorization": f"token {self.config['token']}"}
-        ) as r:
-            data = await r.json()
+        )
+        data = await r.json()
         
         for commit in reversed(data):
             commmit_name, _, message = commit['commit']['message'].partition('\n\n')
@@ -66,12 +65,12 @@ class Github(CCog):
             self.logger.info(f"Updated github commit {commit['sha']}")
     
     @commands.command(usage="<user>[/repo]")
-    async def github(self, ctx: commands.Context, path: str):
+    async def github(self, ctx: commands.Context, *, path: str):
         """Shows info about a github user/repository
         
         Provide as "thesadru" or "thesadru/culturebot"
         """
-        user, _, repo = path.partition('/')
+        user, _, repo = path.replace(' ', '/', 1).partition('/')
         if repo:
             async with self.bot.session.get(
                 f"https://api.github.com/repos/{user}/{repo}",

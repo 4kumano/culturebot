@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import Any
 
 import discord
 from discord.ext import tasks
@@ -75,6 +76,10 @@ query ($id: Int, $last: Int) {
 
         user = data['User']
         for activity in reversed(data['Page']['activities']):
+            # temporary disable of manga:
+            if activity['type'] == 'manga':
+                continue
+            
             anime = f"[{activity['media']['title']['userPreferred']}]({activity['media']['siteUrl']})"
             if activity['progress']:
                 description = f"{activity['status']} {activity['progress']} of {anime}"
@@ -100,7 +105,7 @@ query ($id: Int, $last: Int) {
 
             self.logger.info(f"Updated anilist activity {activity['id']}")
 
-    async def fetch_anilist(self, query: str, variables: dict, **kwargs):
+    async def fetch_anilist(self, query: str, variables: dict, **kwargs) -> Any:
         """Fetches data from anilist api."""
         payload = {'query': query, 'variables': variables}
         async with self.bot.session.post(self.url, json=payload, **kwargs) as r:

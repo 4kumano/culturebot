@@ -22,7 +22,7 @@ class PyDrive:
         try:
             auth.LocalWebserverAuth()
         except RefreshError:
-            print('The provided gdrive token has expired, please refresh it')
+            print('The provided gdrive token has expired, please refresh it, connect to http://localhost:8080/ if this is a mistake')
             os.remove(auth.settings['save_credentials_file'])
             auth = GoogleAuth(settings_file)
             auth.LocalWebserverAuth()
@@ -143,7 +143,9 @@ class Memes(CCog):
     _memes: List[GoogleDriveFile] = []
 
     async def init(self):
-        self.drive = PyDrive(self.config['pydrive_settings'], self.config['folder'])
+        # the authentication is blocking and for some reason rewrites signals
+        # fuck you pydrive
+        self.drive = await to_thread(PyDrive, self.config['pydrive_settings'], self.config['folder'])
         self.update_memes.start()
 
     def cog_unload(self):

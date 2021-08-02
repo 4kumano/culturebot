@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Any, Union
 
 import discord
 import humanize
@@ -43,7 +43,7 @@ class Osu(CCog):
         self.access_token = data['access_token']
         self.expires_in = datetime.now() + timedelta(seconds=data['expires_in'])
 
-    async def request(self, url: str, **kwargs):
+    async def request(self, url: str, **kwargs) -> Any:
         """Requests an osu url"""
         if self.expires_in < datetime.now():
             await self.renew_access_token()
@@ -59,7 +59,7 @@ class Osu(CCog):
         await self.bot.wait_until_ready()
         
         last = datetime.min
-        async for msg in self.channel.history():
+        async for msg in self.channel.history(limit=None):
             if not msg.embeds:
                 continue
             e = msg.embeds[0]

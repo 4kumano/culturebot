@@ -239,10 +239,10 @@ class Misc(CCog):
         overwrite = discord.PermissionOverwrite(
             view_channel=False
         )
-        role = await get_role(target.guild, 'banned', overwrite=overwrite)
-        await target.add_roles(role)
-        roles = [role for role in target.roles if not role.managed and role.id != role.guild.id]
-        await target.remove_roles(*roles)
+        banned_role = await get_role(target.guild, 'banned', overwrite=overwrite)
+        previous_roles = [role for role in target.roles if not role.managed and role.id != role.guild.id]
+        await target.remove_roles(*previous_roles)
+        await target.add_roles(banned_role)
         
         msg = await ctx.send(f'Banned {target}')
         self.logger.debug(f'{ctx.author} fakebanned {target}.')
@@ -257,8 +257,8 @@ class Misc(CCog):
             pass
         
         await msg.clear_reactions()
-        await target.remove_roles(role)
-        await target.add_roles(*roles)
+        await target.add_roles(*previous_roles)
+        await target.remove_roles(banned_role)
         
 
 

@@ -124,11 +124,22 @@ class Moderation(CCog):
         await ctx.send(f':unlock: Unlocked {channel.mention}')
     
     @commands.command()
-    @commands.has_permissions(manage_channels=True)
-    @commands.bot_has_permissions(manage_channels=True)
+    @commands.has_permissions(manage_channels=True, manage_roles=True)
+    @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     async def cleanup(self, ctx: commands.Context):
         """Goes through every channel and cleans up permissions"""
         assert ctx.guild is not None
+        # cleanup roles
+        for role in ctx.guild.roles:
+            if role >= ctx.me.top_role: # type: ignore
+                continue
+            
+            p = role.permissions.value | ctx.guild.default_role.permissions.value
+            if role.permissions.value == p:
+                continue
+            
+            await role.edit(permissions=discord.Permissions(p))
+            await ctx.send(f"Cleaned {role.mention if role.mentionable else role.name}", allowed_mentions=discord.AllowedMentions.none())
         # cleanup permissions
         for channel in ctx.guild.channels:
             clean = {target:overwrite for target, overwrite in channel.overwrites.items() if not overwrite.is_empty()}

@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 from datetime import datetime
-from utils.utils import humanlist
 
 import discord
 from discord.ext import commands
-from utils import CCog, humandate, humandelta
+from utils import CCog, humandate, humandelta, humanlist
+
 
 class General(CCog):
     """General all-purpose commands every bot has"""
@@ -59,8 +60,7 @@ class General(CCog):
 
         Sends you the invite link in DMs.
         """
-        app = await self.bot.application_info()
-        url = discord.utils.oauth_url(app.id, discord.Permissions(2046684374), guild)
+        url = discord.utils.oauth_url(self.bot.user.id, discord.Permissions(2046684374), guild)
         await ctx.send(f"Invite me by clicking here: {url}")
     
     @commands.command(aliases=['prefixes'])
@@ -71,7 +71,7 @@ class General(CCog):
                 raise commands.NoPrivateMessage("You cannot set prefixes outside a server")
             if not ctx.channel.permissions_for(ctx.author).manage_guild: # type: ignore
                 raise commands.MissingPermissions(['manage_guild'])
-            prev = await self.bot.set_guild_prefix(ctx.guild, list(prefixes))
+            prev = await self.bot.set_guild_prefix(ctx.guild, prefixes)
             f = ', '.join(f"`{prefix}`" for prefix in prev)
             t = ', '.join(f"`{prefix}`" for prefix in prefixes)
             await ctx.send(f"Changed prefixes from {f} to {t}")

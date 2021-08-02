@@ -1,12 +1,11 @@
-from __future__ import annotations
 import pkgutil
 import traceback
 
 from bot import bot
 
 for m in pkgutil.iter_modules(['cogs']):
+    module = f"cogs.{m.name}" # sadly no proper way to do this
     try:
-        module = f"{m.module_finder.path.split('/')[-1]}.{m.name}" # type: ignore
         bot.load_extension(module)
         print(f"Loaded extension '{m.name}'")
     except Exception as e:

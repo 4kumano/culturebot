@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import difflib
 import importlib
 import os
@@ -8,7 +9,7 @@ import textwrap
 import time
 import traceback
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Iterable, Optional, Union
 
 import aiohttp
 import discord
@@ -17,7 +18,7 @@ from discord.ext import commands, tasks
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pretty_help import PrettyHelp
 
-from utils import config, logger, report_bug, send_chunks
+from utils import config, humanlist, logger, report_bug, send_chunks
 
 __all__ = ['CBot', 'bot']
 
@@ -61,10 +62,12 @@ class CBot(commands.Bot):
         await self.session.close()
         await super().close()
     
-    async def set_guild_prefix(self, guild: discord.Guild, prefix: Union[str, list[str]]) -> list[str]:
+    async def set_guild_prefix(self, guild: discord.Guild, prefix: Union[str, Iterable[str]]) -> list[str]:
         """Sets the prefix for a guild, returns the previous prefix"""
         if isinstance(prefix, str):
             prefix = [prefix]
+        else:
+            prefix = list(prefix)
         if prefix == [self.command_prefix]:
             previous = await self.db.culturebot.prefixes.find_one_and_delete({'_id': guild.id})
             return previous['prefix'] if previous else [self.command_prefix]
@@ -120,13 +123,18 @@ class CBot(commands.Bot):
                 return # wasn't a command at all
             if ctx.prefix == '':
                 return # user just sent a random message in dms
-
-            cmds = [name for name, command in bot.all_commands.items() if not command.hidden]
-            match = difflib.get_close_matches(ctx.invoked_with, cmds, 1)
-            if match:
-                await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is, did you perhaps mean `{match[0]}`?")
+            
+            cmds = [command.qualified_name for command in bot.commands if not command.hidden]
+            matches = difflib.get_close_matches(ctx.invoked_with, cmds)
+            if matches:
+                await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is, did you perhaps mean {humanlist([f'`{i}`' for i in matches], 'or')}?")
             else:
-                await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is.")
+                cmds = [command.qualified_name for command in bot.walk_commands() if not command.hidden]
+                matches = difflib.get_close_matches(ctx.invoked_with, cmds)
+                if matches:
+                    await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is, did you perhaps mean {humanlist([f'`{i}`' for i in matches], 'or')}?")
+                else:
+                    await ctx.send(f"Sorry I don't know what `{ctx.invoked_with}` is.")
 
         elif isinstance(error, commands.UserInputError):
             bot.help_command.context = ctx

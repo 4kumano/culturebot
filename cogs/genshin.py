@@ -169,10 +169,11 @@ class GenshinImpact(CCog):
             text="Powered by genshinstats",
             icon_url=GENSHIN_LOGO
         )
-        for city in data['explorations']:
+        for city in reversed(data['explorations']):
             exploration_embed.add_field(
                 name=city['name'],
-                value=f"explored {city['explored']}% ({city['type']} lvl {city['level']})",
+                value=f"explored {city['explored']}% ({city['type']} lvl {city['level']})\n" + 
+                      ', '.join(f"{i['name']} lvl {i['level']}" for i in city['offerings']),
                 inline=False
             )
         pages.append(exploration_embed)
@@ -194,6 +195,23 @@ class GenshinImpact(CCog):
                     value=f"{'★'*char['rarity']} {self._element_emoji(char['element'])}\nlvl {char['level']}, friendship {char['friendship']}"
                 )
             pages.append(embed)
+        
+        if len(data['teapots']) > 1:
+            teapot = data['teapots'][0]
+            teapot_embed = discord.Embed(
+                colour=0xffffff,
+                title=f"Info about {uid}",
+                description="Basic teapot info"
+            ).set_footer(
+                text="Powered by genshinstats",
+                icon_url=GENSHIN_LOGO
+            ).add_field(
+                name="Teapot",
+                value=f"Adeptal energy: {teapot['comfort']} (level {teapot['level']})\n"
+                      f"Placed items: {teapot['placed_items']}\n"
+                      f"Unlocked styles: {', '.join(i['name'] for i in data['teapots'])}"
+            )
+            pages.append(teapot_embed)
         
         await send_pages(ctx, ctx, pages)
     
