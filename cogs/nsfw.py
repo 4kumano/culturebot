@@ -183,7 +183,7 @@ class NSFW(CCog):
             "https://members.hanime.tv/rapi/v7/hentai_videos",
             params = {
                 "source": "randomize",
-                "r": random.getrandbits(2**16)
+                "r": random.getrandbits(32)
             }
         ) as r:
             data = await r.json()

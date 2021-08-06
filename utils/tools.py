@@ -98,20 +98,38 @@ class Paginator(Generic[T]):
     The paginator wraps around like a cycle().
     Supports both sequences and iterables.
     """
-    it: Iterator[T]
+    it: Union[Iterator[T], AsyncIterator[T]]
     saved: list[T]
     index: int = 0
     depleted: bool = False 
     
-    def __init__(self, iterable: Iterable[T]):
+    def __init__(self, iterable: Union[Iterable[T], AsyncIterable[T]]):
         """Initialize the Paginator with either a sequence or an iterable."""
         if isinstance(iterable, Collection):
             self.it = iter(())
             self.saved = list(iterable)
             self.depleted = True
-        else:
+            
+        elif isinstance(iterable, Iterable):
             self.it = iter(iterable)
             self.saved = [next(self.it)]
+            
+        elif isinstance(iterable, AsyncIterable):
+            self.it = iterable.__aiter__()
+            self.saved = []
+            
+        else:
+            raise TypeError("Paginator can only be constructed with iterables")
+    
+    @classmethod
+    async def create(cls, iterable: Union[Iterable[T], AsyncIterable[T]]):
+        """Safely create the Paginator in case of async iterables"""
+        if isinstance(iterable, Collection):
+            return cls(iterable)
+        
+        self = cls(iterable)
+        self.saved.append(await maybe_anext(self.it))
+        return self
     
     def __repr__(self) -> str:
         return f"<{type(self).__name__} index={self.index} depleted={self.depleted}>"
@@ -122,14 +140,14 @@ class Paginator(Generic[T]):
         self.index %= len(self.saved)
         return self.saved[self.index]
     
-    def next(self) -> T:
+    async def next(self, asyncify: bool = False) -> T:
         """Get the next page of the paginator, if the end is reached return the first page"""
         self.index += 1
         
         if self.depleted or self.index < len(self.saved):
             return self.curr
         
-        value = next(self.it, None)
+        value = await maybe_anext(self.it, None, asyncify=asyncify)
         if value is None:
             self.depleted = True
             return self.curr
@@ -145,40 +163,3 @@ class Paginator(Generic[T]):
         self.index -= 1
         return self.curr
 
-class AsyncPaginator(Paginator[T]):
-    """A paginator with async iterable support"""
-    it: Union[Iterator[T], AsyncIterator[T]]
-    
-    def __init__(self, iterable: Union[Iterable[T], AsyncIterable[T]]):
-        if isinstance(iterable, AsyncIterable):
-            self.it = iterable.__aiter__()
-            self.saved = []
-        else:
-            super().__init__(iterable)
-    
-    async def acurr(self) -> T:
-        """Helper function to get the first value with async"""
-        if len(self.saved) == 0:
-            return await maybe_anext(self.it)
-        return self.curr
-    
-    @property
-    def curr(self) -> T:
-        if len(self.saved) == 0:
-            raise Exception("Cannot use curr to get the first value before doing next(), "
-                            "you may use \"await paginator.acurr()\"")
-        return super().curr
-    
-    async def next(self, asyncify: bool = False) -> T:
-        self.index += 1
-        
-        if self.depleted or self.index < len(self.saved):
-            return self.curr
-        
-        value = await maybe_anext(self.it, None, asyncify=asyncify)
-        if value is None:
-            self.depleted = True
-            return self.curr
-        
-        self.saved.append(value)
-        return value

@@ -51,35 +51,6 @@ def humanlist(l: Sequence[str], join: str = 'and') -> str:
     """Returns a human readable list"""
     return ', '.join(l[:-1]) + f' {join} ' + l[-1]
 
-def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool = True):
-    def predicate(ctx: commands.Context):
-        channel = ctx.channel
-        if not isinstance(channel, discord.TextChannel):
-            if dms:
-                return True
-            raise commands.CheckFailure("Dms are not counted as a bot channel.")
-
-        if re.search(regex, channel.name) or category and re.search(regex, str(channel.category)):
-            return True
-
-        raise commands.CheckFailure("This channel is not a bot channel.")
-
-    return commands.check(predicate)
-
-def guild_check(guild: Union[int, discord.Guild]):
-    """A check decorator for guilds"""
-    guild = guild.id if isinstance(guild, discord.Guild) else guild
-
-    def predicate(ctx: commands.Context):
-        if ctx.guild is None:
-            raise commands.NoPrivateMessage()
-        elif ctx.guild.id != guild:
-            raise commands.CheckFailure("This command cannot be used in this server")
-        else:
-            return True
-    
-    return commands.check(predicate)
-
 async def _wait_for_many(
     bot: commands.Bot,
     events: Iterable[_Event],

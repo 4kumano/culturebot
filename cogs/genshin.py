@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import asyncio
+import inspect
 import json
 from datetime import datetime, timedelta
 from itertools import groupby
-from typing import Optional, Union
+from typing import Callable, TypeVar, Union
 
 import discord
 import genshinstats as gs
@@ -14,6 +16,7 @@ from utils import (CCog, coroutine, discord_input, grouper, send_pages,
                    to_thread)
 
 GENSHIN_LOGO = "https://yt3.ggpht.com/ytc/AKedOLRtloUOEZcHaRhCYeKyHRg31e54hCcIaVfQ7IN-=s900-c-k-c0x00ffffff-no-rj"
+T = TypeVar('T')
 
 def _item_color(rarity: int = 0) -> int:
     if rarity == 5:
@@ -37,6 +40,22 @@ def _character_icon(name: str, image: bool = False) -> str:
         return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_image/UI_AvatarIcon_{name}@2x.png"
     else:
         return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_icon/UI_AvatarIcon_{name}.png"
+
+def ttl_cache(*params: str, maxsize: int = 2048, ttl: int = 3600) -> Callable[[T], T]:
+    """Uses cachetools.TTLCache with a better params key"""
+    
+    def wrapper(func):
+        sig = inspect.signature(func)
+        
+        def key(*args, **kwargs):
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            return tuple(v for k,v in bound.arguments.items() if k in params)
+        
+        cache = TTLCache(maxsize, ttl)
+        return cached(cache, key=key)(func)
+    
+    return wrapper
 
 base = "https://webstatic-sea.hoyolab.com/app/community-game-records-sea/images/"
 abyss_banners = {
@@ -64,20 +83,29 @@ class GenshinImpact(CCog):
         e = discord.utils.get(g.emojis, name=element.lower()) or discord.Emoji()
         return e
     
-    async def _user_uid(self, user: discord.abc.User) -> Optional[int]:
-        """Returns the user's uid as in the database"""
+    async def _user_uid(self, ctx: commands.Context, user: Union[discord.abc.User, int, None]) -> int:
+        """Helper function to either get the uid or raise an error"""
+        if isinstance(user, int):
+            return user
+        
         data = await self.db.users.find_one(
-            {'discord_id': user.id, 'uid': {'$exists': True}}
+            {'discord_id': (user or ctx.author).id, 'uid': {'$exists': True}}
         )
-        return data['uid'] if data else None
+        if data is None:
+            if user is None:
+                raise commands.BadArgument(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
+            else:
+                raise commands.BadArgument(f"User does not have a uid set")
+        
+        return data['uid']
     
-    @cached(TTLCache(2048, 3600), key=lambda self, uid, **_: hashkey(uid))
+    @ttl_cache('uid')
     def _get_user_stats(self, uid: int, cookie = None):
         return gs.get_user_stats(uid, cookie)
     get_user_stats = coroutine(_get_user_stats)
 
     @coroutine
-    @cached(TTLCache(2048, 3600), key=lambda self, uid, lang, **_: hashkey(uid, lang))
+    @ttl_cache('uid', 'lang')
     def get_characters(self, uid: int, lang: str = 'en-us', cookie = None):
         character_ids = [i['id'] for i in self._get_user_stats(uid)['characters']]
         characters = gs.get_characters(uid, character_ids, lang, cookie)
@@ -87,7 +115,7 @@ class GenshinImpact(CCog):
         return characters
     
     @coroutine
-    @cached(TTLCache(2048, 3600), key=lambda self, uid, previous, **_: hashkey(uid, previous))
+    @ttl_cache('uid', 'previous')
     def get_spiral_abyss(self, uid: int, previous: bool = False, cookie = None):
         return gs.get_spiral_abyss(uid, previous, cookie)
 
@@ -124,18 +152,9 @@ class GenshinImpact(CCog):
     
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin(self, ctx: commands.Context, user: Union[discord.User, int] = None):
+    async def genshin(self, ctx: commands.Context, user: Union[discord.abc.User, int] = None):
         """Shows info about a genshin player"""
-        if isinstance(user, int):
-            uid = user
-        else:
-            uid = await self._user_uid(user or ctx.author)
-            if uid is None:
-                if user is None:
-                    await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
-                else:
-                    await ctx.send(f"User does not have a uid set")
-                return
+        uid = await self._user_uid(ctx, user)
         
         await ctx.trigger_typing()
         try:
@@ -176,6 +195,15 @@ class GenshinImpact(CCog):
                       ', '.join(f"{i['name']} lvl {i['level']}" for i in city['offerings']),
                 inline=False
             )
+        if len(data['teapots']) >= 1:
+            teapot = data['teapots'][0]
+            exploration_embed.add_field(
+                name="Teapot",
+                value=f"Adeptal energy: {teapot['comfort']} (level {teapot['level']})\n"
+                      f"Placed items: {teapot['placed_items']}\n"
+                      f"Unlocked styles: {', '.join(i['name'] for i in data['teapots'])}"
+            )
+        
         pages.append(exploration_embed)
         
         character_embed = discord.Embed(
@@ -196,22 +224,6 @@ class GenshinImpact(CCog):
                 )
             pages.append(embed)
         
-        if len(data['teapots']) > 1:
-            teapot = data['teapots'][0]
-            teapot_embed = discord.Embed(
-                colour=0xffffff,
-                title=f"Info about {uid}",
-                description="Basic teapot info"
-            ).set_footer(
-                text="Powered by genshinstats",
-                icon_url=GENSHIN_LOGO
-            ).add_field(
-                name="Teapot",
-                value=f"Adeptal energy: {teapot['comfort']} (level {teapot['level']})\n"
-                      f"Placed items: {teapot['placed_items']}\n"
-                      f"Unlocked styles: {', '.join(i['name'] for i in data['teapots'])}"
-            )
-            pages.append(teapot_embed)
         
         await send_pages(ctx, ctx, pages)
     
@@ -228,16 +240,11 @@ class GenshinImpact(CCog):
     @commands.cooldown(5, 60, commands.BucketType.user)
     async def genshin_characters(self, ctx: commands.Context, user: Union[discord.User, int] = None, lang: str = 'en-us'):
         """Shows info about a genshin player's characters"""
-        if isinstance(user, int):
-            uid = user
-        else:
-            uid = await self._user_uid(user or ctx.author)
-            if uid is None:
-                if user is None:
-                    await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
-                else:
-                    await ctx.send(f"User does not have a uid set")
-                return
+        uid = await self._user_uid(ctx, user)
+        
+        langs = gs.get_langs()
+        if lang not in langs:
+            raise commands.UserInputError("Invalid lang, must be one of: " + ', '.join(langs.keys()))
         
         await ctx.trigger_typing()
         try:
@@ -255,7 +262,7 @@ class GenshinImpact(CCog):
             ).set_thumbnail(
                 url=char['weapon']['icon']
             ).set_image(
-                url=char['icon']
+                url=char['image']
             ).add_field(
                 name=f"Weapon",
                 value=f"{'★'*char['weapon']['rarity']} {char['weapon']['type']} - {char['weapon']['name']}\n"
@@ -263,7 +270,7 @@ class GenshinImpact(CCog):
                 inline=False
             ).add_field(
                 name=f"Artifacts",
-                value="\n".join(f"**{(i['pos_name'].title()+':')}** {i['set']['name']}\n{'★'*i['rarity']} lvl {i['level']} - {i['name']}" for i in char['artifacts']) or 'none eqipped',
+                value="\n".join(f"**{(i['pos_name'].title()+':')}** {i['set']['name']}\n{'★'*i['rarity']} lvl {i['level']} - {i['name']}" for i in char['artifacts']) or 'none equipped',
                 inline=False
             ).set_footer(
                 text="Powered by genshinstats",
@@ -331,13 +338,9 @@ class GenshinImpact(CCog):
         
     @genshin.command('abyss', aliases=['spiral'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_abyss(self, ctx: commands.Context, uid: Optional[int] = None):
+    async def genshin_abyss(self, ctx: commands.Context, user: Union[discord.abc.User, int] = None):
         """Shows info about a genshin player's spiral abyss runs"""
-        if uid is None:
-            uid = await self._user_uid(ctx.author)
-            if uid is None:
-                await ctx.send(f"Either provide a uid or set your own uid with `{ctx.prefix}genshin setuid`")
-                return
+        uid = await self._user_uid(ctx, user)
         
         await ctx.trigger_typing()
         # this should've been a generator but it's too much of a pain

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import re
+import warnings
 from typing import TYPE_CHECKING, AsyncIterable, Iterable, Union
 
 import discord
 from discord.ext import commands
 
-from .tools import AsyncPaginator, Paginator
+from .tools import Paginator
 
 if TYPE_CHECKING:
     from discord.webhook import _AsyncWebhook  # discord.py-stubs
@@ -59,6 +61,18 @@ async def get_webhook(channel: discord.TextChannel) -> _AsyncWebhook:
 
     return webhook
 
+def get_emoji(name: str, guild: discord.Guild = None) -> discord.Emoji:
+    """Returns the emoji from the main server"""
+    if guild is None:
+        from bot import bot
+        guild = bot.get_guild(570841314200125460) # type: ignore
+    
+    emoji = discord.utils.find(lambda e: e.name.lower() == name.lower(), guild.emojis)
+    if emoji is None:
+        warnings.warn(f"Couldn't find an emoji: {name}")
+        return discord.PartialEmoji(name=":grey_question:") # type: ignore
+    
+    return emoji
 
 async def _try_delete_reaction(message: discord.Message, payload: discord.RawReactionActionEvent) -> None:
     try:
@@ -78,8 +92,8 @@ async def send_pages(
 
     If asyncify is true the items will be gotten asynchronously even with sync iterables.
     """
-    paginator = AsyncPaginator(pages)
-    message = await destination.send(embed=await paginator.acurr())
+    paginator = await Paginator.create(pages)
+    message = await destination.send(embed=paginator.curr)
 
     for reaction in (page_left, page_right, remove):
         asyncio.create_task(message.add_reaction(reaction))
@@ -92,7 +106,10 @@ async def send_pages(
                 timeout=timeout,
             )
         except asyncio.TimeoutError:
-            await message.clear_reactions()
+            try:
+                await message.clear_reactions()
+            except discord.Forbidden:
+                pass
             return
 
         del_task = asyncio.create_task(_try_delete_reaction(message, payload))
@@ -116,3 +133,32 @@ async def send_pages(
             continue
 
         await message.edit(embed=embed)
+
+def bot_channel_only(regex: str = r"bot|spam", category: bool = True, dms: bool = True):
+    def predicate(ctx: commands.Context):
+        channel = ctx.channel
+        if not isinstance(channel, discord.TextChannel):
+            if dms:
+                return True
+            raise commands.CheckFailure("Dms are not counted as a bot channel.")
+
+        if re.search(regex, channel.name) or category and re.search(regex, str(channel.category)):
+            return True
+
+        raise commands.CheckFailure("This channel is not a bot channel.")
+
+    return commands.check(predicate)
+
+def guild_check(guild: Union[int, discord.Guild]):
+    """A check decorator for guilds"""
+    guild = guild.id if isinstance(guild, discord.Guild) else guild
+
+    def predicate(ctx: commands.Context):
+        if ctx.guild is None:
+            raise commands.NoPrivateMessage()
+        elif ctx.guild.id != guild:
+            raise commands.CheckFailure("This command cannot be used in this server")
+        else:
+            return True
+    
+    return commands.check(predicate)

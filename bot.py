@@ -154,7 +154,7 @@ class CBot(commands.Bot):
             raise error
     
     @property
-    def uptime(self):
+    def uptime(self) -> timedelta:
         return datetime.now() - self.start_time
 
 
@@ -182,7 +182,7 @@ async def update_hentai_presence():
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
-            name=f"hentai - {random.choice(hentai[:5])['name']}",
+            name=random.choice(hentai[:5])['name'],
         )
     )
 
