@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from typing import Union
+from utils.types import GuildContext
 
 import aiohttp
 import discord
@@ -13,12 +14,12 @@ class Utility(CCog):
     """Manager for Servers, Members, Roles and emojis"""
     @commands.group('emojis', aliases=['emoji', 'emote', 'emotes'], invoke_without_command=True)
     @commands.guild_only()
-    async def emojis(self, ctx: commands.Context, emoji: Union[discord.Emoji, discord.PartialEmoji] = None):
+    async def emojis(self, ctx: GuildContext, emoji: Union[discord.Emoji, discord.PartialEmoji] = None):
         """Shows and manages all emojis in a guild"""
         if emoji:
             return await self.emoji_details(ctx, emoji)
         
-        guild: discord.Guild = ctx.guild # type: ignore
+        guild = ctx.guild
         await ctx.send(f"emojis in {guild}: ({len(guild.emojis)}/{guild.emoji_limit})")
         classic = animated = ''
         for i in guild.emojis:
@@ -30,7 +31,7 @@ class Utility(CCog):
     @commands.has_permissions(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
     @commands.guild_only()
-    async def set_emoji(self, ctx: commands.Context, name: str, emoji: Union[discord.PartialEmoji, str, None] = None, *roles: discord.Role):
+    async def set_emoji(self, ctx: GuildContext, name: str, emoji: Union[discord.PartialEmoji, str, None] = None, *roles: discord.Role):
         """Adds or sets an emoji to another emoji"""
         if not 2 <= len(name) <= 32:
             raise commands.UserInputError('Name must be between 2 and 32 characters')
@@ -55,7 +56,6 @@ class Utility(CCog):
                 await ctx.send(f"The {'image url' if emoji else 'attached image'} is not valid")
                 return
         
-        assert ctx.guild is not None
         existing = discord.utils.get(ctx.guild.emojis, name=name)
         
         try:
@@ -244,9 +244,9 @@ class Utility(CCog):
     
     @commands.command('activity', aliases=['activities'])
     @commands.guild_only()
-    async def activity(self, ctx: commands.Context, member: discord.Member = None):
+    async def activity(self, ctx: GuildContext, member: discord.Member = None):
         """Shows the activity of a member."""
-        member = member or ctx.author # type: ignore
+        member = member or ctx.author
         if member.activity is None:
             embed = discord.Embed(
                 colour=discord.Colour.red(),

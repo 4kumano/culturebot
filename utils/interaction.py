@@ -25,7 +25,8 @@ async def report_bug(ctx: commands.Context, error: Exception, description: str =
 
     embed = discord.Embed(
         color=discord.Colour.red(), title="A bug was encountered!", url=ctx.message.jump_url, timestamp=datetime.now()
-    ).set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
+    )
+    embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
 
     for chunk, name in zip_once(chunkify(description, 1000, wrapped=True), "description"):
         embed.add_field(name=name, value=chunk, inline=False)

@@ -4,6 +4,7 @@ import random
 from collections import Counter
 from datetime import datetime
 from typing import Union
+from utils.types import GuildContext
 
 import discord
 import humanize
@@ -17,14 +18,14 @@ class Misc(CCog):
     @commands.command('soundeffect', aliases=['sfx'])
     @guild_check(790498180504485918)
     @commands.cooldown(rate=1, per=5, type=commands.BucketType.guild)
-    async def soundeffect(self, ctx: commands.Context, target: discord.Member = None):
+    async def soundeffect(self, ctx: GuildContext, target: discord.Member = None):
         """Joins user's VC and lets keemstar call him a nice word.
 
         If I get canceled for this I have no regrets.
         I ain't on twitter anyways.
         Because you bitches were spamming it's now limited to 1 per 5s.
         """
-        target = target or ctx.author # type: ignore
+        target = target or ctx.author
         if target.voice is None or target.voice.channel is None:
             await ctx.send("Cannot play a soundeffect, the user is not in a vc")
             return
@@ -95,10 +96,8 @@ class Misc(CCog):
     
     @commands.command()
     @commands.guild_only()
-    async def swears(self, ctx: commands.Context, user: Union[discord.User, discord.Member] = None):
+    async def swears(self, ctx: GuildContext, user: Union[discord.User, discord.Member] = None):
         """Short help"""
-        assert ctx.guild is not None
-        
         if user is None:
             # there is a proper way to do this but I can't be fucked.
             swears = [
@@ -179,14 +178,14 @@ class Misc(CCog):
     # commands that use discord features
     @commands.command()
     @commands.guild_only()
-    async def mimic(self, ctx: commands.Context, user: Union[discord.Member, discord.User], *, message: str):
+    async def mimic(self, ctx: GuildContext, user: Union[discord.Member, discord.User], *, message: str):
         """Sends a webhook message that looks like a user sent it."""
         await ctx.message.delete()
         if user == ctx.bot.user:
             await ctx.send(message)
             return
         
-        webhook = await get_webhook(ctx.channel) # type: ignore
+        webhook = await get_webhook(ctx.channel)
         await webhook.send(
             message,
             username=user.display_name, 
@@ -203,9 +202,9 @@ class Misc(CCog):
     @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(mention_everyone=True)
     @commands.guild_only()
-    async def mention(self, ctx: commands.Context, type: str = 'here'):
+    async def mention(self, ctx: GuildContext, type: str = 'here'):
         """Silently mentions all users in a server and deletes the message"""
-        perms = ctx.channel.permissions_for(ctx.guild.me) # type: ignore
+        perms = ctx.channel.permissions_for(ctx.guild.me)
         if perms.manage_messages:
             await ctx.message.delete()
         msg = await ctx.send('@'+type)

@@ -13,6 +13,7 @@ from typing import Iterable, Optional, Union
 
 import aiohttp
 import discord
+import dislash
 import uvicorn
 from discord.ext import commands, tasks
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -33,6 +34,7 @@ class CBot(commands.Bot):
     session: aiohttp.ClientSession
     help_command: commands.HelpCommand
     db: AsyncIOMotorDatabase
+    slash: dislash.SlashClient
     
     def run(self, *, reconnect: bool = True) -> None:
         super().run(self.config["bot"]["token"], bot=True, reconnect=reconnect)
@@ -165,6 +167,11 @@ bot = CBot(
     help_command=PrettyHelp(color=0x42F56C, ending_note="Global Prefix: {ctx.bot.command_prefix}"),
     intents=discord.Intents.all(),
 )
+bot.slash = dislash.SlashClient(bot)
+
+@bot.slash.command(name="help")
+async def slash_help(inter: dislash.Interaction):
+    await inter.reply("Sorry, slash commands are currently a pain to deal with")
 
 @bot.before_invoke
 async def before_invoke(ctx: commands.Context):

@@ -5,6 +5,7 @@ import os
 import random
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
+from utils.types import GuildContext
 
 import discord
 from discord.ext import commands, tasks
@@ -209,12 +210,12 @@ class Memes(CCog):
 
     @commands.command('dump_memes', hidden=True)
     @commands.is_owner()
-    async def dump_memes(self, ctx: commands.Context, channel: discord.TextChannel = None):
+    async def dump_memes(self, ctx: GuildContext, channel: discord.TextChannel = None):
         """Dumps all memes from the memebin into a channel.
 
         This can only be used by the owner.
         """
-        channel = channel or ctx.channel # type: ignore
+        channel = channel or ctx.channel
         path = self.config['localdir']
         for file in os.listdir(path):
             try:

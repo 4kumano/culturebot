@@ -57,7 +57,7 @@ async def to_async_iterator(iterable: Iterable[T], loop: asyncio.AbstractEventLo
     loop = loop or asyncio.get_event_loop()
     it = iter(iterable)
     while True:
-        x: Optional[T] = await loop.run_in_executor(async_executor, next, it, None) # type: ignore
+        x: Optional[T] = await to_thread(next, it, None) # type: ignore
         if x is None:
             return
         yield x

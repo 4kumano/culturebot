@@ -24,7 +24,7 @@ async def get_role(
     role = discord.utils.find(lambda r: r.name.lower() == name.lower(), guild.roles)
 
     if role is None:
-        role = await guild.create_role(name=name, permissions=permissions or Permissions.none())  # type: ignore
+        role = await guild.create_role(name=name, permissions=permissions or discord.Permissions.none())
     elif permissions is not None and role.permissions != permissions:
         await role.edit(permissions=permissions)
 

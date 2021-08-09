@@ -2,6 +2,7 @@ aiohttp
 cachetools
 discord.py
 discord-pretty-help
+dislash.py
 fastapi
 genshinstats
 humanize

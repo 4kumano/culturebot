@@ -74,12 +74,12 @@ async def wait_for_any(bot: commands.Bot, *events: _Event, timeout: int = None) 
     if not tasks:
         return '', None
     task = tasks.pop()
-    return task.get_name(), await task
+    return task.get_name(), task.result()
 
 async def wait_for_all(bot: commands.Bot, *events: _Event, timeout: int = None) -> dict[str, Any]:
     """Waits for the all event to complete"""
     tasks = await _wait_for_many(bot, events, timeout=timeout, return_when='ALL_COMPLETED')
-    return {task.get_name(): await task for task in tasks}
+    return {task.get_name(): task.result() for task in tasks}
 
 async def wait_for_reaction(
     bot: commands.Bot, 
