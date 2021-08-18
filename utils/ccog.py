@@ -5,7 +5,7 @@ import inspect
 from logging import Logger
 from typing import TYPE_CHECKING, TypeVar
 
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from .config import config, logger
 
@@ -42,3 +42,8 @@ class CCog(commands.Cog):
             self.bot.loop.create_task(self.init())
         
         return self
+
+    def cog_unload(self) -> None:
+        for loop in self.__dict__.values():
+            if isinstance(loop, tasks.Loop):
+                loop.cancel()

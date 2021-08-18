@@ -1,11 +1,10 @@
-from typing import Union, type_check_only
+from typing import Union
 import discord
 from discord.ext import commands
 from typing_extensions import TypeAlias
 
 UserMember: TypeAlias = Union[discord.User, discord.Member]
 
-@type_check_only
 class GuildContext(commands.Context):
     """A context which doesn't show stupid errors for possible dms"""
     @discord.utils.cached_property

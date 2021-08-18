@@ -9,9 +9,9 @@ from utils.types import GuildContext
 
 import discord
 from discord.ext import commands, tasks
-from pydrive.auth import GoogleAuth, LoadAuth, RefreshError
-from pydrive.drive import GoogleDrive
-from pydrive.files import ApiRequestError, GoogleDriveFile
+from pydrive2.auth import GoogleAuth, LoadAuth, RefreshError
+from pydrive2.drive import GoogleDrive
+from pydrive2.files import ApiRequestError, GoogleDriveFile
 from utils import CCog, coroutine, to_thread
 
 

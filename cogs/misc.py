@@ -117,7 +117,7 @@ class Misc(CCog):
             )
             for rank, (u, s) in enumerate(swears[:10], 1):
                 embed.add_field(
-                    name=f"{rank} - {self.bot.get_user(u)}",
+                    name=f"{rank} - {self.bot.get_user(u) or await self.bot.fetch_user(u)}",
                     value=f"Sweared **{sum(s.values())}** time{'s'*(len(s)!=1)}.\nMost common swears: " + 
                             '**' + ', '.join(sorted(s.keys(), key=lambda k: -s[k])[:5]) + '**', 
                     inline=False

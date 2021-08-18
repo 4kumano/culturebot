@@ -9,7 +9,7 @@ import textwrap
 import time
 import traceback
 from datetime import datetime, timedelta
-from typing import Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union
 
 import aiohttp
 import discord
@@ -26,7 +26,7 @@ __all__ = ['CBot', 'bot']
 class CBot(commands.Bot):
     __slots__ = ()
 
-    DEBUG = len(sys.argv) > 1 and sys.argv[1].upper() == "DEBUG"
+    debug: bool = False
     config = config
     logger = logger
     start_time = datetime.now()
@@ -36,25 +36,28 @@ class CBot(commands.Bot):
     db: AsyncIOMotorDatabase
     slash: dislash.SlashClient
     
-    def run(self, *, reconnect: bool = True) -> None:
-        super().run(self.config["bot"]["token"], bot=True, reconnect=reconnect)
+    def run(self, debug: bool = False, *, reconnect: bool = True, **kwargs: Any) -> None:
+        self.debug = debug
+        super().run(self.config["bot"]["token"], bot=True, reconnect=reconnect, **kwargs)
 
-    async def start(self, *args, **kwargs) -> None:
+    async def start(self, token: str, bot: bool = True, reconnect: bool = True, *, webapp: bool = True) -> None:
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
         self.db = AsyncIOMotorClient(self.config['bot']['mongodb'])
-        
-        self.loop.create_task(self.start_webapp())
-        
         update_hentai_presence.start()
-        if self.DEBUG:
+        
+        if webapp:
+            self.loop.create_task(self.start_webapp())
+        
+        if self.debug:
             check_for_update.start()
 
-        await super().start(*args, **kwargs)
+        await super().start(token, bot=bot, reconnect=reconnect)
     
     async def start_webapp(self) -> None:
         """Starts the fastapi app"""
-        config = uvicorn.Config('web:app', debug=self.DEBUG, reload=self.DEBUG, use_colors=False)
+        # reloads are not supported when the discord bot is the main process
+        config = uvicorn.Config('web:app', debug=self.debug, use_colors=False)
         self.server = uvicorn.Server(config)
         await self.server.serve()
         await self.close()
@@ -62,6 +65,7 @@ class CBot(commands.Bot):
     async def close(self) -> None:
         """Closes the bot and its session."""
         await self.session.close()
+        await self.server.shutdown()
         await super().close()
     
     async def set_guild_prefix(self, guild: discord.Guild, prefix: Union[str, Iterable[str]]) -> list[str]:
@@ -214,7 +218,12 @@ async def check_for_update():
                 pass
             else:
                 print(f"Reloaded {name}")
-        elif name != 'web':
+        elif name.startswith('web'):
+            pass
+            # sys.modules = {k: v for k, v in sys.modules.items() if not k.startswith('web')}
+            # await bot.server.shutdown()
+            # await bot.start_webapp()
+        else:
             try:
                 importlib.reload(module)
                 # normally you'd reload bot.py itself but that causes a memory leak
