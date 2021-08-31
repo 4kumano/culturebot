@@ -90,7 +90,7 @@ class Misc(CCog):
         
         await self.bot.db.culturebot.swears.update_one(
             {'member': message.author.id, 'guild': message.guild.id},
-            {'$inc': {f'swears.{k}':v for k,v in words.items()}},
+            {'$inc': {f'swears.{k}': v for k,v in words.items()} | {'total': sum(words.values())}},
             upsert=True
         )
     

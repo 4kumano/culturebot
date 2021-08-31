@@ -83,7 +83,7 @@ async def _try_delete_reaction(message: discord.Message, payload: discord.RawRea
 page_left, page_right, remove = "◀", "▶", "❌"
 async def send_pages(
     ctx: commands.Context,
-    destination: discord.abc.Messageable,
+    destination: Union[discord.abc.Messageable, discord.Message],
     pages: Union[Iterable[discord.Embed], AsyncIterable[discord.Embed]],
     asyncify: bool = False,
     timeout: int = 60,
@@ -93,7 +93,10 @@ async def send_pages(
     If asyncify is true the items will be gotten asynchronously even with sync iterables.
     """
     paginator = await Paginator.create(pages)
-    message = await destination.send(embed=paginator.curr)
+    if isinstance(destination, discord.Message):
+        message = destination
+    else:
+        message = await destination.send(embed=paginator.curr)
 
     for reaction in (page_left, page_right, remove):
         asyncio.create_task(message.add_reaction(reaction))

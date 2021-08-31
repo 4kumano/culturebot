@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import importlib
+import logging
 import os
 import random
 import sys
@@ -34,7 +35,7 @@ class CBot(commands.Bot):
     session: aiohttp.ClientSession
     help_command: commands.HelpCommand
     db: AsyncIOMotorDatabase
-    slash: dislash.SlashClient
+    slash: dislash.InteractionClient
     
     def run(self, debug: bool = False, *, reconnect: bool = True, **kwargs: Any) -> None:
         self.debug = debug
@@ -65,7 +66,8 @@ class CBot(commands.Bot):
     async def close(self) -> None:
         """Closes the bot and its session."""
         await self.session.close()
-        await self.server.shutdown()
+        if hasattr(self, 'server') and self.server is not None:
+            await self.server.shutdown()
         await super().close()
     
     async def set_guild_prefix(self, guild: discord.Guild, prefix: Union[str, Iterable[str]]) -> list[str]:
@@ -171,11 +173,7 @@ bot = CBot(
     help_command=PrettyHelp(color=0x42F56C, ending_note="Global Prefix: {ctx.bot.command_prefix}"),
     intents=discord.Intents.all(),
 )
-bot.slash = dislash.SlashClient(bot)
-
-@bot.slash.command(name="help")
-async def slash_help(inter: dislash.Interaction):
-    await inter.reply("Sorry, slash commands are currently a pain to deal with")
+bot.slash = dislash.InteractionClient(bot, test_guilds=[570841314200125460, 842788736008978504], modify_send=False)
 
 @bot.before_invoke
 async def before_invoke(ctx: commands.Context):

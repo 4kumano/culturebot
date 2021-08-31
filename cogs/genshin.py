@@ -9,7 +9,7 @@ from typing import Callable, TypeVar, Union
 
 import discord
 import genshinstats as gs
-from cachetools import TTLCache, cached
+from cachetools import TTLCache
 from cachetools.keys import hashkey
 from discord.ext import commands
 from utils import (CCog, coroutine, discord_input, grouper, send_pages,
@@ -41,22 +41,6 @@ def _character_icon(name: str, image: bool = False) -> str:
     else:
         return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_icon/UI_AvatarIcon_{name}.png"
 
-def ttl_cache(*params: str, maxsize: int = 2048, ttl: int = 3600) -> Callable[[T], T]:
-    """Uses cachetools.TTLCache with a better params key"""
-    
-    def wrapper(func):
-        sig = inspect.signature(func)
-        
-        def key(*args, **kwargs):
-            bound = sig.bind(*args, **kwargs)
-            bound.apply_defaults()
-            return tuple(v for k,v in bound.arguments.items() if k in params)
-        
-        cache = TTLCache(maxsize, ttl)
-        return cached(cache, key=key)(func)
-    
-    return wrapper
-
 base = "https://webstatic-sea.hoyolab.com/app/community-game-records-sea/images/"
 abyss_banners = {
     0:  base + "pc-abyss-bg.dc0c3ac6.png",
@@ -74,6 +58,8 @@ class GenshinImpact(CCog):
         with open(self.config['cookie_file']) as file:
             cookies = json.load(file)
         gs.set_cookies(*cookies)
+        self.cache = TTLCache(1024, 3600)
+        gs.install_cache(self.cache)
         
         await self.bot.wait_until_ready()
         self.db = self.bot.db.genshin
@@ -98,26 +84,6 @@ class GenshinImpact(CCog):
                 raise commands.BadArgument(f"User does not have a uid set")
         
         return data['uid']
-    
-    @ttl_cache('uid')
-    def _get_user_stats(self, uid: int, cookie = None):
-        return gs.get_user_stats(uid, cookie)
-    get_user_stats = coroutine(_get_user_stats)
-
-    @coroutine
-    @ttl_cache('uid', 'lang')
-    def get_characters(self, uid: int, lang: str = 'en-us', cookie = None):
-        character_ids = [i['id'] for i in self._get_user_stats(uid)['characters']]
-        characters = gs.get_characters(uid, character_ids, lang, cookie)
-        for c in characters:
-            self.icon_cache[c['name']] = c['icon']
-            self.icon_cache[c['weapon']['name']] = c['weapon']['icon']
-        return characters
-    
-    @coroutine
-    @ttl_cache('uid', 'previous')
-    def get_spiral_abyss(self, uid: int, previous: bool = False, cookie = None):
-        return gs.get_spiral_abyss(uid, previous, cookie)
 
     async def update_users_cache(self):
         """Updates the user cache in the database"""
@@ -158,7 +124,7 @@ class GenshinImpact(CCog):
         
         await ctx.trigger_typing()
         try:
-            data = await self.get_user_stats(uid)
+            data = await to_thread(gs.get_user_stats, uid)
         except gs.GenshinStatsException as e:
             await ctx.send(e.msg)
             return
@@ -248,7 +214,7 @@ class GenshinImpact(CCog):
         
         await ctx.trigger_typing()
         try:
-            data = await self.get_characters(uid, lang)
+            data = await to_thread(gs.get_characters, uid, lang=lang)
         except gs.GenshinStatsException as e:
             await ctx.send(e.msg)
             return
@@ -282,7 +248,7 @@ class GenshinImpact(CCog):
     
     async def _genshin_abyss(self, uid: int, previous: bool) -> list[discord.Embed]:
         """Gets the embeds for spiral abyss history for a specific season."""
-        data = await self.get_spiral_abyss(uid, previous)
+        data = await to_thread(gs.get_spiral_abyss, uid, previous)
         if data['stats']['total_battles'] == 0:
             return []
         
@@ -375,7 +341,7 @@ class GenshinImpact(CCog):
             if message is None:
                 await ctx.author.send("Timed out!")
                 return
-            authkey = message.content
+            authkey = message.content.strip()
         else:
             authkey = data['authkey']
 
@@ -392,6 +358,7 @@ class GenshinImpact(CCog):
                     {'$set': {'authkey': authkey, 'authkey_expire': datetime.utcnow() + timedelta(days=1)}},
                     upsert=True
                 )
+                # make sure to update only when the user doesn't have a uid set
                 await self.db.users.update_one(
                     {'discord_id': ctx.author.id, 'uid': {'$exists': False}},
                     {'$set': {'uid': uid}}
@@ -401,7 +368,7 @@ class GenshinImpact(CCog):
             if message is None:
                 await ctx.author.send("Timed out!")
                 return
-            authkey = message.content
+            authkey = message.content.strip()
 
         def embeds():
             """Helper function to make a multiline generator"""
@@ -467,7 +434,7 @@ class GenshinImpact(CCog):
     async def genshin_setuid(self, ctx: commands.Context, uid: int):
         """Sets a uid to your account letting the bot remember you when you request more data"""
         try:
-            await self.get_user_stats(uid)
+            await to_thread(gs.get_user_stats, uid)
         except gs.GenshinStatsException as e:
             await ctx.send(e.msg)
             return

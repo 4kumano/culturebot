@@ -19,7 +19,13 @@ T2 = TypeVar("T2")
 P = ParamSpec("P")
 
 async_executor = ThreadPoolExecutor(max_workers=32)
-def to_thread(func: Callable[P, T], *args, **kwargs) -> Awaitable[T]:
+
+
+@overload
+def to_thread(func: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> Awaitable[T]: ...
+@overload
+def to_thread(func: Callable[..., T], *args: Any, **kwargs: Any) -> Awaitable[T]: ...
+def to_thread(func: Callable[..., T], *args, **kwargs) -> Awaitable[T]:
     """Like asyncio.to_thread() but <3.9 and uses the a custom executor"""
     loop = asyncio.get_event_loop()
     return loop.run_in_executor(async_executor, partial(func, *args, **kwargs))
