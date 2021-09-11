@@ -10,8 +10,6 @@ from discord.ext import commands
 
 from .tools import Paginator
 
-if TYPE_CHECKING:
-    from discord.webhook import _AsyncWebhook  # discord.py-stubs
 
 
 async def get_role(
@@ -46,7 +44,7 @@ async def get_muted_role(guild: discord.Guild) -> discord.Role:
     return await get_role(guild, "muted", overwrite)
 
 
-async def get_webhook(channel: discord.TextChannel) -> _AsyncWebhook:
+async def get_webhook(channel: discord.TextChannel) -> discord.Webhook:
     """Returns the general bot hook or creates one"""
     webhook = discord.utils.find(
         lambda w: w.name is not None and w.name.lower() == "culture hook", await channel.webhooks()
@@ -56,7 +54,7 @@ async def get_webhook(channel: discord.TextChannel) -> _AsyncWebhook:
         from bot import bot
 
         webhook = await channel.create_webhook(
-            name="Culture Hook", avatar=await bot.user.avatar_url.read(), reason="For making better looking messages"
+            name="Culture Hook", avatar=await bot.user.display_avatar.read(), reason="For making better looking messages"
         )
 
     return webhook

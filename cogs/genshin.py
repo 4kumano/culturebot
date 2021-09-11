@@ -66,10 +66,11 @@ class GenshinImpact(CCog):
     
     def _element_emoji(self, element: str) -> discord.Emoji:
         g = self.bot.get_guild(570841314200125460) or self.bot.guilds[0]
-        e = discord.utils.get(g.emojis, name=element.lower()) or discord.Emoji()
+        e = discord.utils.get(g.emojis, name=element.lower())
+        assert e
         return e
     
-    async def _user_uid(self, ctx: commands.Context, user: Union[discord.abc.User, int, None]) -> int:
+    async def _user_uid(self, ctx: commands.Context, user: Union[discord.User, discord.Member, int, None]) -> int:
         """Helper function to either get the uid or raise an error"""
         if isinstance(user, int):
             return user
@@ -118,7 +119,7 @@ class GenshinImpact(CCog):
     
     @commands.group(invoke_without_command=True, aliases=['gs', 'gi', 'ys'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin(self, ctx: commands.Context, user: Union[discord.abc.User, int] = None):
+    async def genshin(self, ctx: commands.Context, user: Union[discord.User, int] = None):
         """Shows info about a genshin player"""
         uid = await self._user_uid(ctx, user)
         
@@ -304,7 +305,7 @@ class GenshinImpact(CCog):
         
     @genshin.command('abyss', aliases=['spiral'])
     @commands.cooldown(5, 60, commands.BucketType.user)
-    async def genshin_abyss(self, ctx: commands.Context, user: Union[discord.abc.User, int] = None):
+    async def genshin_abyss(self, ctx: commands.Context, user: Union[discord.User, int] = None):
         """Shows info about a genshin player's spiral abyss runs"""
         uid = await self._user_uid(ctx, user)
         

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Union
 
 import discord
@@ -74,7 +74,7 @@ class Osu(CCog):
         data.sort(key=lambda x: x['created_at'])
         
         for score in data[-10:]:
-            t = datetime.fromisoformat(score['created_at']).replace(tzinfo=None)
+            t = datetime.fromisoformat(score['created_at']).replace(tzinfo=timezone.utc)
             if t <= last:
                 continue
             

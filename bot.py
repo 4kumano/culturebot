@@ -39,9 +39,9 @@ class CBot(commands.Bot):
     
     def run(self, debug: bool = False, *, reconnect: bool = True, **kwargs: Any) -> None:
         self.debug = debug
-        super().run(self.config["bot"]["token"], bot=True, reconnect=reconnect, **kwargs)
+        super().run(self.config["bot"]["token"], reconnect=reconnect, **kwargs)
 
-    async def start(self, token: str, bot: bool = True, reconnect: bool = True, *, webapp: bool = True) -> None:
+    async def start(self, token: str, reconnect: bool = True, *, webapp: bool = True) -> None:
         """Starts a bot and all misc tasks"""
         self.session = aiohttp.ClientSession()
         self.db = AsyncIOMotorClient(self.config['bot']['mongodb'])
@@ -53,12 +53,12 @@ class CBot(commands.Bot):
         if self.debug:
             check_for_update.start()
 
-        await super().start(token, bot=bot, reconnect=reconnect)
+        await super().start(token, reconnect=reconnect)
     
     async def start_webapp(self) -> None:
         """Starts the fastapi app"""
         # reloads are not supported when the discord bot is the main process
-        config = uvicorn.Config('web:app', debug=self.debug, use_colors=False)
+        config = uvicorn.Config('web:app', port=5000, debug=self.debug, use_colors=False)
         self.server = uvicorn.Server(config)
         await self.server.serve()
         await self.close()
@@ -72,14 +72,11 @@ class CBot(commands.Bot):
     
     async def set_guild_prefix(self, guild: discord.Guild, prefix: Union[str, Iterable[str]]) -> list[str]:
         """Sets the prefix for a guild, returns the previous prefix"""
-        if isinstance(prefix, str):
-            prefix = [prefix]
-        else:
-            prefix = list(prefix)
+        prefix = [prefix] if isinstance(prefix, str) else list(prefix)
         if prefix == [self.command_prefix]:
             previous = await self.db.culturebot.prefixes.find_one_and_delete({'_id': guild.id})
             return previous['prefix'] if previous else [self.command_prefix]
-        
+
         previous = await self.db.culturebot.prefixes.find_one_and_update(
             {'_id': guild.id}, 
             {'$set': {'prefix': prefix}},
@@ -107,11 +104,12 @@ class CBot(commands.Bot):
         logger.info(f"Logged into {len(bot.guilds)} servers.")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if datetime.now() - before.created_at > timedelta(minutes=2):
+        if datetime.now().astimezone() - before.created_at > timedelta(minutes=2):
             return
         await bot.process_commands(after)
 
     async def on_command_error(self, ctx: commands.Context, error: Exception):
+        # sourcery no-metrics
         msg = str(error.args[0]) if error.args else ''
         if isinstance(error, commands.CommandInvokeError):
             e = error.original
@@ -173,11 +171,12 @@ bot = CBot(
     help_command=PrettyHelp(color=0x42F56C, ending_note="Global Prefix: {ctx.bot.command_prefix}"),
     intents=discord.Intents.all(),
 )
-bot.slash = dislash.InteractionClient(bot, test_guilds=[570841314200125460, 842788736008978504], modify_send=False)
+bot.slash = dislash.InteractionClient(bot, test_guilds=[570841314200125460, 842788736008978504, 790498180504485918, 576071601817255946], modify_send=False)
 
 @bot.before_invoke
 async def before_invoke(ctx: commands.Context):
     """Logs a command to the console along with all neccessary info"""
+    assert ctx.command
     cmd_path = ctx.command.full_parent_name.replace(" ", ".")
     command = (cmd_path + "." if cmd_path else "") + ctx.command.name
 

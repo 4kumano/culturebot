@@ -19,13 +19,13 @@ class General(CCog):
         app = await self.bot.application_info()
         embed = discord.Embed(
             title="Culture bot.",
-            description=f"A multi-purpose bot made by sadru, contains random features I decided to add on a whim.",
+            description=app.description,
             color=0x42F56C
         ).set_thumbnail(
-            url=self.bot.user.avatar_url
+            url=self.bot.user.display_avatar.url
         ).set_author(
             name=self.bot.user.name,
-            icon_url=self.bot.user.avatar_url
+            icon_url=self.bot.user.display_avatar.url
         ).add_field(
             name="Prefix:",
             value=f"{humanlist([f'`{p}`' for p in await self.bot.get_guild_prefix(ctx.guild)] + [self.bot.user.mention], 'or')}"
@@ -44,7 +44,7 @@ class General(CCog):
             value=f"http://{self.bot.server.config.host}:{self.bot.server.config.port}/docs"
         ).set_footer(
             text=f"requested by {ctx.message.author}",
-            icon_url=ctx.message.author.avatar_url
+            icon_url=ctx.message.author.display_avatar.url
         )
         
         await ctx.send(embed=embed)
@@ -60,7 +60,7 @@ class General(CCog):
 
         Sends you the invite link in DMs.
         """
-        url = discord.utils.oauth_url(self.bot.user.id, discord.Permissions(2046684374), guild)
+        url = discord.utils.oauth_url(self.bot.user.id, permissions=discord.Permissions(2046684374), guild=guild or discord.utils.MISSING)
         await ctx.send(f"Invite me by clicking here: {url}")
     
     @commands.command(aliases=['prefixes'])

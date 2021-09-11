@@ -24,6 +24,9 @@ class BB(CCog, name="Belle's Battleground"):
         if message.mentions and any(i in message.content.lower() for i in ("thanks", "thank you")):
             await message.add_reaction("👍")
             await message.add_reaction("❌")
+        
+        if 'pee hoo' in message.content.lower() or 'a' * 6 in message.content.lower():
+            await message.delete()
 
     @commands.group(invoke_without_command=True)
     @guild_check(842788736008978504)

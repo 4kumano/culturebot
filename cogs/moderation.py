@@ -140,7 +140,7 @@ class Moderation(CCog):
             if clean == channel.overwrites:
                 continue # don't make extra requests
             
-            await channel.edit(overwrites=clean)
+            await channel.edit(overwrites=clean) # type: ignore - wtf is wrong
             await ctx.send(f"Cleaned {channel.mention}")
         await ctx.send("Cleanup complete")
                 

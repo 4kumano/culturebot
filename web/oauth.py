@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 import secrets
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Optional
 from urllib.parse import quote as urlquote
 from urllib.parse import urlencode
 
 import aiohttp
-from fastapi import FastAPI, Request, Depends
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.responses import Response
 from utils import config
@@ -13,15 +15,38 @@ from utils import config
 app = FastAPI(docs_url=None, redoc_url=None)
 
 
-class NoAccessToken(Exception):
-    def __init__(self, message=None) -> None:
-        super().__init__(message or "No oauth access token found, please authorize")
+class Unauthorized(Exception):
+    pass
+
+
+class RefreshedToken(Exception):
+    def __init__(self, client: DiscordClient) -> None:
+        self.client = client
+        super().__init__()
 
 
 class DiscordClient:
-    def __init__(self, access_token: str, refresh_token: str = None) -> None:
+    client_id: ClassVar[str] = config.get("oauth", "client_id")
+    client_secret: ClassVar[str] = config.get("oauth", "client_secret")
+
+    access_token: Optional[str]
+    refresh_token: Optional[str]
+    allow_refresh: bool
+
+    def __init__(self, access_token: str = None, refresh_token: str = None, allow_refresh: bool = True) -> None:
+        if not access_token and not refresh_token:
+            raise TypeError("Either an access token or a refresh token is required")
+
         self.access_token = access_token
         self.refresh_token = refresh_token
+        self.allow_refresh = allow_refresh
+        self._me = None
+
+    def __del__(self):
+        try:
+            asyncio.create_task(self._session.close())
+        except:
+            pass
 
     @property
     def session(self):
@@ -30,71 +55,96 @@ class DiscordClient:
 
         return self._session
 
-    def __del__(self):
-        try:
-            asyncio.create_task(self._session.close())
-        except:
-            pass
-
     @classmethod
     async def from_code(cls, code: str, redirect_uri: str):
         session = aiohttp.ClientSession()
         r = await session.post(
             "https://discord.com/api/v8/oauth2/token",
             data={
-                "client_id": config.get("oauth", "client_id"),
-                "client_secret": config.get("oauth", "client_secret"),
+                "client_id": cls.client_id,
+                "client_secret": cls.client_secret,
                 "grant_type": "authorization_code",
                 "code": code,
                 "redirect_uri": redirect_uri,
             },
         )
         data = await r.json()
-        print(data)
+
         self = cls(data["access_token"], data["refresh_token"])
         self._session = session
         return self
 
+    @classmethod
+    def from_request(cls, request: Request, **kwargs) -> Optional[DiscordClient]:
+        auth_header: str = request.headers.get("authorization")
+
+        if auth_header:
+            scheme, _, access_token = auth_header.partition(" ")
+            if scheme.lower() != "bearer":
+                raise HTTPException(403, "Authorization scheme is incorrect")
+            refresh_token = None
+        else:
+            access_token = request.cookies.get("oauth_access_token")
+            refresh_token = request.cookies.get("oauth_refresh_token")
+
+            if access_token is None and refresh_token is None:
+                return None
+
+        return cls(access_token, refresh_token, **kwargs)
+
     async def request(self, endpoint: str, **kwargs: Any) -> Any:
-        for _ in range(3):
-            r = await self.session.get(
-                f"https://discord.com/api/v8/{endpoint}", headers={"Authorization": f"Bearer {self.access_token}"}, **kwargs
-            )
-            if r.status == 200:
-                return await r.json()
-            else:
-                await self.refresh_access_token()
+        r = await self.session.get(
+            f"https://discord.com/api/v8/{endpoint}", headers={"Authorization": f"Bearer {self.access_token}"}, **kwargs
+        )
+        data = await r.json()
+        if r.status == 200:
+            return data
+        elif self.allow_refresh and self.refresh_token:
+            await self.refresh_access_token()
+            return await self.request(endpoint, **kwargs)
+        
+        raise Exception(data['message'])
 
     async def refresh_access_token(self) -> None:
         r = await self.session.post(
             "https://discord.com/api/v8/oauth2/token",
             data={
-                "client_id": config.get("oauth", "client_id"),
-                "client_secret": config.get("oauth", "client_secret"),
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
                 "grant_type": "refresh_token",
                 "refresh_token": self.refresh_token,
             },
         )
         data = await r.json()
-        self.access_token = data['access_token']
-        self.refresh_token = data['refresh_token']
+        if "error" in data:
+            raise Unauthorized
+
+        self.access_token = data["access_token"]
+        self.refresh_token = data["refresh_token"]
 
     async def me(self) -> dict[str, Any]:
-        return await self.request("/users/@me")
+        if self._me is None:
+            self._me = await self.request("/users/@me")
+        return self._me
 
     def add_cookies(self, response: Response) -> None:
-        response.set_cookie("oauth_access_token", self.access_token, max_age=None)
-        response.set_cookie("oauth_refresh_token", self.refresh_token or "", httponly=True)
+        if self.access_token:
+            response.set_cookie("oauth_access_token", self.access_token, max_age=None)
+        if self.refresh_token:
+            response.set_cookie("oauth_refresh_token", self.refresh_token, httponly=True)
 
 
-async def discord_client(request: Request) -> DiscordClient:
-    access = request.cookies.get("oauth_access_token")
-    refresh = request.cookies.get("oauth_refresh_token")
+async def discord_client(request: Request, response: Response) -> DiscordClient:
+    client = DiscordClient.from_request(request)
+    if client is None:
+        raise Unauthorized
 
-    if access is None:
-        raise NoAccessToken()
+    access, refresh = client.access_token, client.refresh_token
+    await client.me()
+    if access != client.access_token or refresh != client.refresh_token:
+        raise RefreshedToken(client)
 
-    return DiscordClient(access, refresh)
+    return client
 
 
 @app.get("/")
@@ -118,7 +168,7 @@ async def oauth(request: Request):
 
 
 @app.get("/callback")
-async def oauth_callback(code: str, state: str, request: Request):
+async def oauth_callback(request: Request, code: str, state: str):
     """Callback endpoint for discord oauth"""
     if request.cookies.get("oauth_state") != state:
         return JSONResponse({"error": "state is incorrect"}, 403)
@@ -126,8 +176,7 @@ async def oauth_callback(code: str, state: str, request: Request):
     client = await DiscordClient.from_code(code, request.url_for("oauth_callback"))
 
     response = RedirectResponse(request.url_for("oauth_me"))
-    response.set_cookie("oauth_access_token", client.access_token, max_age=None)
-    response.set_cookie("oauth_refresh_token", client.refresh_token or "", httponly=True)
+    client.add_cookies(response)
     return response
 
 
@@ -150,3 +199,16 @@ async def oauth_logout():
     response.delete_cookie("oauth_access_token")
     response.delete_cookie("oauth_refresh_token")
     return response
+
+
+@app.exception_handler(RefreshedToken)
+async def handle_refreshed_token(request: Request, exception: RefreshedToken):
+    client = exception.client
+    response = RedirectResponse(request.url)
+    client.add_cookies(response)
+    return response
+
+
+@app.exception_handler(Unauthorized)
+async def handle_unauthorized(request: Request, exception: Unauthorized):
+    return RedirectResponse(request.url_for("oauth"))

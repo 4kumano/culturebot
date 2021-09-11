@@ -26,7 +26,7 @@ async def report_bug(ctx: commands.Context, error: Exception, description: str =
     embed = discord.Embed(
         color=discord.Colour.red(), title="A bug was encountered!", url=ctx.message.jump_url, timestamp=datetime.now()
     )
-    embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
+    embed.set_author(name=str(ctx.author), icon_url=ctx.author.display_avatar.url)
 
     for chunk, name in zip_once(chunkify(description, 1000, wrapped=True), "description"):
         embed.add_field(name=name, value=chunk, inline=False)
@@ -60,7 +60,7 @@ async def confirm(bot: commands.Bot, message: discord.Message, user: discord.abc
 async def discord_choice(
     bot: commands.Bot,
     message: discord.Message,
-    user: discord.abc.User,
+    user: Union[discord.User, discord.Member],
     choices: Union[Mapping[str, T], list[T]],
     timeout: float = 60,
     delete_after_timeout: bool = True,
@@ -109,7 +109,7 @@ async def discord_choice(
 
 
 async def discord_input(
-    bot: commands.Bot, user: discord.abc.User, channel: discord.abc.Messageable, timeout: int = 60
+    bot: commands.Bot, user: Union[discord.User, discord.Member], channel: discord.abc.Messageable, timeout: int = 60
 ) -> Optional[discord.Message]:
     if isinstance(channel, (discord.User, discord.Member)):
         channel = channel.dm_channel or await channel.create_dm()

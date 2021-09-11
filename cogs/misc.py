@@ -135,7 +135,7 @@ class Misc(CCog):
                 title=f"Top 10 swears of {user}",
                 description=f"List of the top 10 most used swears of {user.mention}"
             ).set_thumbnail(
-                url=user.avatar_url
+                url=user.display_avatar.url
             )
             for rank, (swear, amount) in enumerate(Counter(swears['swears']).most_common(10), 1):
                 embed.add_field(
@@ -159,7 +159,7 @@ class Misc(CCog):
             return
         
         if amount == 1:
-            await ctx.send(random.randint(1, sides))
+            await ctx.send(str(random.randint(1, sides)))
         else:
             rolls = [random.randint(1, sides) for _ in range(amount)]
             await ctx.send(', '.join(map(str,rolls)) + f'\ntotal: {sum(rolls)}')
@@ -189,7 +189,7 @@ class Misc(CCog):
         await webhook.send(
             message,
             username=user.display_name, 
-            avatar_url=user.avatar_url, 
+            avatar_url=user.display_avatar.url,
             files=[await i.to_file(spoiler=i.is_spoiler()) for i in ctx.message.attachments if i.size < 0x100000], 
             embeds=ctx.message.embeds
         )

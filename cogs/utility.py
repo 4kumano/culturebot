@@ -37,7 +37,7 @@ class Utility(CCog):
             raise commands.UserInputError('Name must be between 2 and 32 characters')
         
         if isinstance(emoji, discord.PartialEmoji): # discord emoji
-            image = await emoji.url.read()
+            image = await emoji.read()
         else:
             if emoji:
                 url = emoji
@@ -158,9 +158,9 @@ class Utility(CCog):
         
         embed.set_author(
             name=user.name,
-            icon_url=user.avatar_url
+            icon_url=user.display_avatar.url
         ).set_thumbnail(
-            url=user.avatar_url
+            url=user.display_avatar.url
         ).set_footer(
             text=f"ID: {user.id}"
         )
@@ -209,14 +209,15 @@ class Utility(CCog):
                         f"Text channels: {len(guild.text_channels)}\n"
                         f"Voice channels: {len(guild.voice_channels)}"
         ).set_thumbnail(
-            url=guild.icon_url
+            url=guild.icon.url if guild.icon else discord.Embed.Empty
         ).set_footer(
             text=guild.id
         )
-        if 'VANITY_URL' in guild.features:
-            embed.url = (await guild.vanity_invite()).url
-        if guild.banner_url:
-            embed.set_image(url=guild.banner_url)
+        vanity_invite = await guild.vanity_invite()
+        if vanity_invite:
+            embed.url = vanity_invite.url
+        if guild.banner:
+            embed.set_image(url=guild.banner.url)
         await ctx.send(embed=embed)
     
     @commands.command('react')
@@ -253,7 +254,7 @@ class Utility(CCog):
                 title=f"{member.display_name} does not have any activity"
             ).set_author(
                 name=member,
-                url=member.avatar_url
+                url=member.display_avatar.url
             )
             await ctx.send(embed=embed)
             return
@@ -311,7 +312,7 @@ class Utility(CCog):
             
             embed.set_footer(
                 text=f'Activity of {member}',
-                icon_url=member.avatar_url
+                icon_url=member.avatar
             )
             embeds.append(embed)
         

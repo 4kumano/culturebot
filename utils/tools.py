@@ -46,27 +46,25 @@ async def maybe_anext(it: Union[Iterator[T], AsyncIterator[T]], default: Any = .
     If asyncify is true and the iterator is sync then the next value is ran in an executor.
     """
     try:
-        if isinstance(it, Iterator):
-            if asyncify:
-                return await to_thread(next, it) # type: ignore
-            else:
-                return next(it)
-        else:
+        if isinstance(it, AsyncIterator):
             return await it.__anext__()
+        elif asyncify:
+            return await to_thread(it.__next__)
+        else:
+            return next(it)
     except (StopIteration, StopAsyncIteration):
         if default is ...:
             raise
         return default
 
-async def to_async_iterator(iterable: Iterable[T], loop: asyncio.AbstractEventLoop = None) -> AsyncIterator[T]:
+async def to_async_iterator(iterable: Iterable[T]) -> AsyncIterator[T]:
     """Turns an iterator into an async iterator"""
-    loop = loop or asyncio.get_event_loop()
     it = iter(iterable)
     while True:
-        x: Optional[T] = await to_thread(next, it, None) # type: ignore
-        if x is None:
-            return
-        yield x
+        try:
+            yield await to_thread(it.__next__)
+        except StopIteration:
+            break
 
 def to_sync_iterator(iterable: AsyncIterable[T]) -> Iterator[T]:
     """Turns an async iterator into an iterator

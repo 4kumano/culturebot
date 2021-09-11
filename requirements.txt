@@ -1,6 +1,6 @@
 aiohttp
 cachetools
-discord.py
+git+https://github.com/Rapptz/discord.py
 discord-pretty-help
 dislash.py
 fastapi
