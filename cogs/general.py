@@ -41,7 +41,7 @@ class General(CCog):
             value="[thesadru/culturebot](https://github.com/thesadru/culturebot)",
         ).add_field(
             name="API",
-            value=f"http://{self.bot.server.config.host}:{self.bot.server.config.port}/docs"
+            value=f"http://{self.bot.server.config.host}:{self.bot.server.config.port}/api"
         ).set_footer(
             text=f"requested by {ctx.message.author}",
             icon_url=ctx.message.author.display_avatar.url
@@ -55,12 +55,19 @@ class General(CCog):
         await ctx.send(f"Pong! :ping_pong: ({self.bot.latency*1000:.2f}ms)")
 
     @commands.command()
-    async def invite(self, ctx: commands.Context, guild: discord.Guild = None):
+    async def invite(self, ctx: commands.Context):
         """Get the invite link of the bot to be able to invite it.
 
         Sends you the invite link in DMs.
         """
-        url = discord.utils.oauth_url(self.bot.user.id, permissions=discord.Permissions(2046684374), guild=guild or discord.utils.MISSING)
+        perms = discord.Permissions(
+            add_reactions=True, 
+            read_messages=True, 
+            send_messages=True, 
+            embed_links=True, 
+            attach_files=True
+        )
+        url = discord.utils.oauth_url(self.bot.user.id, permissions=perms, scopes=['bot', 'applications.commands'])
         await ctx.send(f"Invite me by clicking here: {url}")
     
     @commands.command(aliases=['prefixes'])

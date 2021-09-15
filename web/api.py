@@ -66,7 +66,7 @@ class SwearMember(BaseModel):
     total: int
 
 @app.get("/swears/{guild}", tags=['swears'], summary="guild swears", response_model=list[SwearMember])
-async def guild_swears(guild: int, limit: int = Query(10, lt=50)):
+async def guild_swears(guild: int, limit: int = Query(10, le=50)):
     """A leaderboard of swears for a server"""
     # there is a proper way to do this but I can't be fucked.
     swears = [doc async for doc in app.bot.db.culturebot.swears.find({"guild": guild}).sort('total', -1).limit(limit)]
@@ -89,14 +89,14 @@ async def member_swears(guild: int, member: int):
     return [{"rank": rank, "swear": swear, "amount": amount} for rank, (swear, amount) in enumerate(Counter(swears["swears"]).most_common(), 1)]
 
 
-class XPLeaderboard(BaseModel):
+class XPMember(BaseModel):
     rank: int
     member: int = Field(example=803268588387434536)
     member_name: Optional[str] = Field(None, example="Culture bot#7920")
     xp: int
 
-@app.get('/xp/{guild}', tags=['xp'], summary="guild xp leaderboard", response_model=list[XPLeaderboard])
-async def guild_xp(guild: int, limit: int = Query(10, lt=50)):
+@app.get('/xp/{guild}', tags=['xp'], summary="guild xp leaderboard", response_model=list[XPMember])
+async def guild_xp(guild: int, limit: int = Query(10, le=50)):
     xp = [doc async for doc in app.bot.db.xp.xp.find({"guild": guild}).sort('xp', -1).limit(limit)]
     return [
         {

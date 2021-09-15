@@ -39,6 +39,8 @@ class CBot(commands.Bot):
     
     def run(self, debug: bool = False, *, reconnect: bool = True, **kwargs: Any) -> None:
         self.debug = debug
+        if not self.debug:
+            self.slash._test_guilds.clear()
         super().run(self.config["bot"]["token"], reconnect=reconnect, **kwargs)
 
     async def start(self, token: str, reconnect: bool = True, *, webapp: bool = True) -> None:
@@ -171,7 +173,11 @@ bot = CBot(
     help_command=PrettyHelp(color=0x42F56C, ending_note="Global Prefix: {ctx.bot.command_prefix}"),
     intents=discord.Intents.all(),
 )
-bot.slash = dislash.InteractionClient(bot, test_guilds=[570841314200125460, 842788736008978504, 790498180504485918, 576071601817255946], modify_send=False)
+bot.slash = dislash.InteractionClient(
+    bot, 
+    test_guilds=[570841314200125460, 842788736008978504, 790498180504485918, 576071601817255946], 
+    modify_send=False
+)
 
 @bot.before_invoke
 async def before_invoke(ctx: commands.Context):

@@ -20,7 +20,7 @@ query ($id: Int, $last: Int) {
     siteUrl
   }
   Page(page: 1) {
-    activities(userId: $id, type: MEDIA_LIST, sort: ID_DESC, createdAt_greater: $last) {
+    activities(userId: $id, type: ANIME_LIST, sort: ID_DESC, createdAt_greater: $last) {
       ... on ListActivity {
         id
         type
