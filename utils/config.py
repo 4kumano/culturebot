@@ -1,14 +1,19 @@
 from __future__ import annotations
 import logging
 import sys
+import os
 from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
 
 config = ConfigParser()
-config.read('config.cfg')
+if os.path.isfile('config.cfg'):
+    config.read('config.cfg')
+else:
+    config.read_string(os.environ['CULTUREBOT_CONFIG'])
 
 FORMATTER = logging.Formatter("{asctime} :: {levelname:5s} :: {message}",style='{')
 LOG_FILE = "logs/culturebot.log"
+os.makedirs('logs', exist_ok=True)
 
 logging.basicConfig()
 logger = logging.getLogger('culturebot')
