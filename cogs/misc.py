@@ -116,8 +116,13 @@ class Misc(CCog):
                 description=f"List of the top 10 users who have the most of swears in {ctx.guild.name}"
             )
             for rank, (u, s) in enumerate(swears[:10], 1):
+                # handle deleted users and such
+                try:
+                    su = self.bot.get_user(u) or await self.bot.fetch_user(u)
+                except:
+                    su = "Unknown user"
                 embed.add_field(
-                    name=f"{rank} - {self.bot.get_user(u) or await self.bot.fetch_user(u)}",
+                    name=f"{rank} - {su}",
                     value=f"Sweared **{sum(s.values())}** time{'s'*(len(s)!=1)}.\nMost common swears: " + 
                             '**' + ', '.join(sorted(s.keys(), key=lambda k: -s[k])[:5]) + '**', 
                     inline=False
