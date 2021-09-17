@@ -5,18 +5,20 @@ import inspect
 import json
 from datetime import datetime, timedelta
 from itertools import groupby
-from typing import Callable, TypeVar, Union
+from typing import Any, Optional, TypeVar, Union
 
 import discord
 import genshinstats as gs
 from cachetools import TTLCache
-from cachetools.keys import hashkey
 from discord.ext import commands
-from utils import (CCog, coroutine, discord_input, grouper, send_pages,
-                   to_thread)
+from genshinstats.pretty import character_icons
+from utils import CCog, discord_input, grouper, send_pages, to_thread
 
 GENSHIN_LOGO = "https://yt3.ggpht.com/ytc/AKedOLRtloUOEZcHaRhCYeKyHRg31e54hCcIaVfQ7IN-=s900-c-k-c0x00ffffff-no-rj"
 T = TypeVar('T')
+character_icons.update({"Shogun": "Raiden Shogun"})
+character_icons.update({"Sara": "Kujou Sara"})
+character_icons = {v:k for k,v in character_icons.items()}
 
 def _item_color(rarity: int = 0) -> int:
     if rarity == 5:
@@ -30,12 +32,7 @@ def _item_color(rarity: int = 0) -> int:
 
 def _character_icon(name: str, image: bool = False) -> str:
     name = name.title().replace('_', ' ')
-    name = {
-        "Amber": "Ambor",
-        "Jean": "Qin",
-        "Noelle": "Noel",
-        "Traveler": "PlayerBoy"
-    }.get(name, name)
+    name = character_icons.get(name, name).replace(' ', '_')
     if image:
         return f"https://upload-os-bbs.mihoyo.com/game_record/genshin/character_image/UI_AvatarIcon_{name}@2x.png"
     else:
@@ -220,6 +217,9 @@ class GenshinImpact(CCog):
             await ctx.send(e.msg)
             return
 
+        for char in data:
+            self.icon_cache[char['weapon']['name']] = char['weapon']['icon']
+        
         embeds = [
             discord.Embed(
                 colour=_item_color(char['rarity']),
@@ -248,6 +248,7 @@ class GenshinImpact(CCog):
         await send_pages(ctx, ctx, embeds)
     
     async def _genshin_abyss(self, uid: int, previous: bool) -> list[discord.Embed]:
+        # sourcery no-metrics
         """Gets the embeds for spiral abyss history for a specific season."""
         data = await to_thread(gs.get_spiral_abyss, uid, previous)
         if data['stats']['total_battles'] == 0:
@@ -308,7 +309,7 @@ class GenshinImpact(CCog):
     async def genshin_abyss(self, ctx: commands.Context, user: Union[discord.User, int] = None):
         """Shows info about a genshin player's spiral abyss runs"""
         uid = await self._user_uid(ctx, user)
-        
+
         await ctx.trigger_typing()
         # this should've been a generator but it's too much of a pain
         embeds = []
@@ -318,11 +319,63 @@ class GenshinImpact(CCog):
         except gs.GenshinStatsException as e:
             await ctx.send(e.msg)
             return
-        if len(embeds) == 0:
+        if not embeds:
             await ctx.send("Player hasn't done any spiral abyss in the past month")
             return
-        
+
         await send_pages(ctx, ctx, embeds)
+    
+    def create_icon(self, pull: dict[str, Any]) -> Optional[str]:
+        if pull['type'] == 'Character':
+            return _character_icon(pull['name'])
+        
+        return self.icon_cache.get(pull['name'])
+        
+    
+    def create_10pull_embed(self, pulls: list[dict[str, Any]]) -> discord.Embed:
+        pulls = sorted(pulls, key=lambda x: (-x['rarity'], x['type']))
+        rarest = pulls[0]
+        embed = discord.Embed(
+            colour=_item_color(rarest['rarity']),
+            title=f"Wish history of {rarest['uid']}", 
+            description=f"10-pull from **{rarest['banner']}**",
+            timestamp=datetime.fromisoformat(rarest['time'])
+        ).set_footer(
+            text="Powered by genshinstats",
+            icon_url=GENSHIN_LOGO
+        )
+
+        embed.set_thumbnail(url=self.create_icon(rarest) or discord.Embed.Empty)
+
+        for pull in pulls:
+            embed.add_field(
+                name=pull['name'],
+                value=f"{pull['rarity']}★ {pull['type']}\n"
+            )
+        return embed
+    
+    def create_1pull_embed(self, pulls: list[dict[str, Any]]) -> discord.Embed:
+        rarest = max(pulls, key=lambda x: x['rarity'])
+        embed = discord.Embed(
+            colour=_item_color(rarest['rarity']),
+            title=f"Wish history of {rarest['uid']}", 
+            description=f"{len(pulls)} single pulls from various banners",
+            timestamp=datetime.fromisoformat(rarest['time'])
+        ).set_footer(
+            text="Powered by genshinstats",
+            icon_url=GENSHIN_LOGO
+        )
+
+        embed.set_thumbnail(url=self.create_icon(rarest) or discord.Embed.Empty)
+
+        for pull in pulls:
+            embed.add_field(
+                name=pull['name'],
+                value=f"{pull['rarity']}★ {pull['type']}\n"
+                        f"Pulled from the **{pull['banner']}**",
+                inline=False
+            )
+        return embed
     
     @genshin.command('wishes', aliases=['wish', 'wishHistory'])
     async def genshin_wish_history(self, ctx: commands.Context):
@@ -371,63 +424,22 @@ class GenshinImpact(CCog):
                 return
             authkey = message.content.strip()
 
+
         def embeds():
             """Helper function to make a multiline generator"""
             single_pulls = []
             for time, g in groupby(gs.get_wish_history(authkey=authkey), key=lambda x: x['time']):
                 pulls = list(g)
-                
+
                 if len(pulls) == 1:
                     single_pulls.append(pulls[0])
-                
-                if len(single_pulls) == 8 or (len(pulls) == 10 and len(single_pulls) > 0):
-                    rarest = max(single_pulls, key=lambda x: x['rarity'])
-                    embed = discord.Embed(
-                        colour=_item_color(rarest['rarity']),
-                        title=f"Wish history of {single_pulls[0]['uid']}", 
-                        description=f"{len(single_pulls)} single pulls from various banners",
-                        timestamp=datetime.fromisoformat(single_pulls[0]['time'])
-                    ).set_footer(
-                        text="Powered by genshinstats",
-                        icon_url=GENSHIN_LOGO
-                    )
-                    if rarest['type'] == 'Character':
-                        embed.set_thumbnail(url=_character_icon(rarest['name']))
-                    elif rarest['id'] in self.icon_cache:
-                        embed.set_thumbnail(url=self.icon_cache[rarest['name']])
-                    
-                    for pull in single_pulls:
-                        embed.add_field(
-                            name=pull['name'],
-                            value=f"{pull['rarity']}★ {pull['type']}\n"
-                                  f"Pulled from the **{pull['banner']}**",
-                            inline=False
-                        )
-                    yield embed
+
+                if len(single_pulls) == 8 or len(pulls) == 10 and single_pulls:
+                    yield self.create_1pull_embed(single_pulls)
                     single_pulls.clear()
-                
+
                 if len(pulls) == 10:
-                    pulls = sorted(pulls, key=lambda x: (-x['rarity'], x['type']))
-                    embed = discord.Embed(
-                        colour=_item_color(pulls[0]['rarity']),
-                        title=f"Wish history of {pulls[0]['uid']}", 
-                        description=f"10-pull from **{pulls[0]['banner']}**",
-                        timestamp=datetime.fromisoformat(time)
-                    ).set_footer(
-                        text="Powered by genshinstats",
-                        icon_url=GENSHIN_LOGO
-                    )
-                    if pulls[0]['type'] == 'Character':
-                        embed.set_thumbnail(url=_character_icon(pulls[0]['name']))
-                    elif pulls[0]['id'] in self.icon_cache:
-                        embed.set_thumbnail(url=self.icon_cache[pulls[0]['id']])
-                    
-                    for pull in pulls:
-                        embed.add_field(
-                            name=pull['name'],
-                            value=f"{pull['rarity']}★ {pull['type']}\n"
-                        )
-                    yield embed
+                    yield self.create_10pull_embed(pulls)
         
         await send_pages(ctx, ctx, embeds(), asyncify=True)
     
